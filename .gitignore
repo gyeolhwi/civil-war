@@ -45,3 +45,6 @@ out/
 # Temp
 *.tmp
 tmp/
+
+# Generated docs (md에서 재생성 가능)
+docs/*.pdf
