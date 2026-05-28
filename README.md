@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Civil War
 
-## Getting Started
+오버워치 **디스코드 채널별 내전(in-house) 편성·운영·기록** 웹앱.
 
-First, run the development server:
+티어와 포지션으로 균형 잡힌 두 팀을 자동으로 짜고, 드래그 한 번으로 드래프트하고, 결과를 기록한다. 화면 공유로 진행하는 걸 전제로 디자인했다.
+
+> 🚧 개발 중. 현재 진행 상황과 다음 작업은 **[`docs/STATUS.md`](docs/STATUS.md)** 참조.
+
+## 무엇을 / 누구를 위해
+
+- **단위**: 디스코드 채널 1개 = 독립된 내전 그룹 (멤버·기록 격리)
+- **운영**: 채널 관리자가 멤버를 등록하고 매주 정기 내전을 편성·기록
+- **규모**: 채널당 10~30명, 1회 내전 = 정확히 10명 (5v5, 1탱-2딜-2힐)
+
+## 주요 기능
+
+- 멤버별 역할 티어·선호 포지션·선호 영웅/맵 관리 (채널별 프로필)
+- **자동 밸런스** 팀 편성 (티어 점수 + 조합 패널티 기반) / **팀장 드래프트**(스네이크, 실시간 점수)
+- 맵 자동 선정·영웅 밴·결과 기록, 매치 수정·삭제
+- 팀 구성 디스코드 공유(텍스트 복사), 개인 전적·통계
+- 다크 UI(Linear 스타일) + 과하지 않은 모션
+
+## 기술 스택
+
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 · shadcn/ui · TanStack Query · react-hook-form + zod · dnd-kit · **Supabase**(Postgres/Auth) · Vercel · Biome · Vitest · pnpm
+
+## 빠른 시작
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+
+# 환경변수 설정 (Supabase URL/anon key)
+cp .env.local.example .env.local   # 값 채우기 — docs/ops/supabase-setup.md 참조
+
+# DB 셋업: supabase/migrations/0001_init.sql 실행 후 관리자 계정·시드
+#   → docs/ops/supabase-setup.md
+
+pnpm dev      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+스크립트: `pnpm dev` · `pnpm build` · `pnpm lint`(biome) · `pnpm test`(vitest)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 문서
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+기획·설계·계획은 [`docs/`](docs/)에 정리돼 있다. 진입점은 [`docs/README.md`](docs/README.md).
 
-## Learn More
+| 문서 | 내용 |
+|---|---|
+| [`docs/STATUS.md`](docs/STATUS.md) | 현재 진행 상태 + 다음 할 일 (세션 이어가기) |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | 단계별 계획 |
+| [`docs/spec/`](docs/spec/) | 요구사항·워크플로우·ERD·시나리오 |
+| [`docs/design/design.md`](docs/design/design.md) | 디자인 시스템·모션·UX 원칙 |
+| [`docs/ops/supabase-setup.md`](docs/ops/supabase-setup.md) | DB·계정·시드 셋업 가이드 |
 
-To learn more about Next.js, take a look at the following resources:
+## 프로젝트 구조
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+├── app/              # 라우트 (랜딩 / login / app 대시보드)
+├── components/ui/    # shadcn/ui 컴포넌트
+├── constants/        # HEROES · MAPS · TIER (마스터 데이터)
+├── domain/           # 점수·조합 패널티 로직, 타입
+└── lib/supabase/     # Supabase 클라이언트 (browser/server/middleware)
+supabase/migrations/  # DB 스키마
+docs/                 # 기획·설계·계획
+```
