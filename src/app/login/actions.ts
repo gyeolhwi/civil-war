@@ -14,13 +14,17 @@ export async function login(formData: FormData) {
 
   const domain =
     process.env.NEXT_PUBLIC_INTERNAL_EMAIL_DOMAIN ?? "civilwar.local";
-  const email = `${username}@${domain}`;
+  // 입력에 @가 있으면 실제 이메일로 그대로, 없으면 아이디 → 내부 이메일 변환
+  const email = username.includes("@") ? username : `${username}@${domain}`;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect("/login?error=invalid");
+    const code = error.message.toLowerCase().includes("not confirmed")
+      ? "unconfirmed"
+      : "invalid";
+    redirect(`/login?error=${code}`);
   }
 
   redirect("/app");
