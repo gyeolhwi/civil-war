@@ -1,0 +1,158 @@
+/* Pretendard (한글) — design.md 권장 폰트. @import는 최상단 필수 */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+  Civil War 디자인 토큰 — Linear 다크 시스템 (docs/design.md)
+  라이트 모드는 사용하지 않는다 (design.md: "Don't ship a light-mode").
+  :root 자체가 다크 캔버스다.
+*/
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* surface ladder */
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+
+  /* ink scale */
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-ink-tertiary: var(--ink-tertiary);
+
+  /* team & role */
+  --color-team-a: var(--team-a);
+  --color-team-b: var(--team-b);
+  --color-role-tank: var(--role-tank);
+  --color-role-dps: var(--role-dps);
+  --color-role-support: var(--role-support);
+  --color-success: var(--success);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+
+  /* motion (docs/design.md) */
+  --ease-out-quint: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-soft: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* Linear surface ladder */
+  --canvas: #010102;
+  --surface-1: #0d0e10;
+  --surface-2: #16181c;
+  --surface-3: #1e2024;
+  --surface-4: #26282d;
+  --hairline: #23252a;
+  --hairline-strong: #34373d;
+
+  /* ink */
+  --ink: #f7f8f8;
+  --ink-muted: #d0d6e0;
+  --ink-subtle: #8a8f98;
+  --ink-tertiary: #62666d;
+
+  /* brand */
+  --primary: #5e6ad2;
+  --primary-foreground: #ffffff;
+  --primary-hover: #828fff;
+  --primary-focus: #5e69d1;
+  --success: #27a644;
+
+  /* team identity (design.md App Context) */
+  --team-a: #5e6ad2;
+  --team-b: #e5484d;
+
+  /* role accents (절제된 구분) */
+  --role-tank: #7a86e0;
+  --role-dps: #e0a458;
+  --role-support: #5cc08a;
+
+  /* shadcn semantic mapping → Linear */
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface-1);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--ink);
+  --secondary: var(--surface-1);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--ink-subtle);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--ink);
+  --destructive: var(--team-b);
+  --border: var(--hairline);
+  --input: var(--hairline-strong);
+  --ring: var(--primary-focus);
+
+  /* motion durations */
+  --motion-instant: 100ms;
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 300ms;
+  --motion-slower: 450ms;
+
+  --font-sans: "Pretendard Variable", Pretendard, var(--font-geist-sans),
+    -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* dark canvas의 미세한 상단 하이라이트 느낌 */
+    font-feature-settings: "ss01";
+  }
+  html {
+    @apply font-sans;
+    color-scheme: dark;
+  }
+  /* 접근성: 모션 줄이기 선호 시 전환 최소화 (opacity-only fallback) */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
