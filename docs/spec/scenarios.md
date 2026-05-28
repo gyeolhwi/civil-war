@@ -2,7 +2,7 @@
 
 - **프로젝트**: Civil War — 오버워치 디스코드 채널별 내전 운영 웹앱
 - **버전**: v1
-- **연관 문서**: `docs/requirements.md`, `docs/workflow.md`, `docs/erd.md`
+- **연관 문서**: `requirements.md`, `workflow.md`, `erd.md`
 - **표기**: 시나리오 ID `SC-XX`, 연관 기능 `F#`. 형식은 Given(전제) / When(행위) / Then(결과)
 
 ---

@@ -3,7 +3,7 @@
 - **프로젝트**: Civil War — 오버워치 디스코드 채널별 내전 운영 웹앱
 - **버전**: v1
 - **DB**: Supabase Postgres (RLS 사용)
-- **연관 문서**: `docs/requirements.md` (§5 데이터 모델), `docs/workflow.md`
+- **연관 문서**: `requirements.md` (§5 데이터 모델), `workflow.md`
 
 ---
 
