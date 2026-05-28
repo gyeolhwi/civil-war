@@ -1,0 +1,47 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+*~
+
+# OMC (oh-my-claudecode)
+.omc/
+.claude/
+
+# Playwright / MCP
+playwright-mcp/
+playwright-report/
+test-results/
+.playwright/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out/
+.next/
+.cache/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Temp
+*.tmp
+tmp/
