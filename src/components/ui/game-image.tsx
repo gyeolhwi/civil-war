@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { HERO_BY_CODE } from "@/constants/heroes";
 import { MAP_BY_CODE } from "@/constants/maps";
@@ -13,8 +14,8 @@ const ROLE_BG: Record<Role, string> = {
 };
 
 /**
- * 영웅 초상. /heroes/<code>.jpg 가 있으면 이미지, 없으면 역할색 + 이름 이니셜 폴백.
- * 파일을 나중에 넣으면 자동으로 이미지로 표시됨.
+ * 영웅 초상. /heroes/<code>.png 가 있으면 next/image로 최적화 표시,
+ * 없으면 역할색 + 이름 이니셜 폴백. 파일을 나중에 넣으면 자동 표시.
  */
 export function HeroImage({
   code,
@@ -27,12 +28,11 @@ export function HeroImage({
 }) {
   const [failed, setFailed] = useState(false);
   const hero = HERO_BY_CODE[code];
-  const box = { width: size, height: size };
 
   if (failed || !hero) {
     return (
       <span
-        style={box}
+        style={{ width: size, height: size }}
         className={cn(
           "inline-flex shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
           hero ? ROLE_BG[hero.role] : "bg-surface-3 text-ink-subtle",
@@ -46,11 +46,11 @@ export function HeroImage({
   }
 
   return (
-    // biome-ignore lint/performance/noImgElement: public 정적 + onError 폴백 위해 img 사용
-    <img
+    <Image
       src={hero.image}
       alt={hero.nameKo}
-      style={box}
+      width={size}
+      height={size}
       onError={() => setFailed(true)}
       className={cn(
         "shrink-0 rounded-full object-cover animate-in fade-in duration-300",
@@ -61,7 +61,8 @@ export function HeroImage({
 }
 
 /**
- * 맵 이미지. /maps/<code>.jpg 가 있으면 이미지, 없으면 그라데이션 + 맵 이름 폴백.
+ * 맵 이미지. /maps/<code>.png 가 있으면 next/image(fill)로 표시,
+ * 없으면 그라데이션 + 맵 이름 폴백. className으로 컨테이너 크기 지정(예: h-44 w-full).
  */
 export function MapImage({
   code,
@@ -87,15 +88,15 @@ export function MapImage({
   }
 
   return (
-    // biome-ignore lint/performance/noImgElement: public 정적 + onError 폴백 위해 img 사용
-    <img
-      src={map.image}
-      alt={map.nameKo}
-      onError={() => setFailed(true)}
-      className={cn(
-        "rounded-lg object-cover animate-in fade-in duration-300",
-        className,
-      )}
-    />
+    <div className={cn("relative overflow-hidden", className)}>
+      <Image
+        src={map.image}
+        alt={map.nameKo}
+        fill
+        sizes="(max-width: 768px) 100vw, 640px"
+        onError={() => setFailed(true)}
+        className="object-cover animate-in fade-in duration-300"
+      />
+    </div>
   );
 }
