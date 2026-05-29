@@ -3,17 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-function reducedMotion() {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-  );
-}
-
 /**
  * 숫자가 이전 값에서 현재 값으로 부드럽게 카운트업/다운되는 표시.
  * flash=true면 증가 시 초록, 감소 시 빨강으로 잠깐 강조 (드래프트 실시간 점수용).
- * prefers-reduced-motion이면 즉시 반영.
+ * (OS reduced-motion 설정과 무관하게 항상 재생)
  */
 export function AnimatedNumber({
   value,
@@ -40,11 +33,6 @@ export function AnimatedNumber({
     if (flash) {
       setDir(to > from ? "up" : "down");
       flashTimer = setTimeout(() => setDir(null), 650);
-    }
-
-    if (reducedMotion()) {
-      setDisplay(to);
-      return () => clearTimeout(flashTimer);
     }
 
     let raf = 0;
