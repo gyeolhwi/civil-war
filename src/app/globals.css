@@ -154,4 +154,14 @@
     caret-color: var(--foreground);
     transition: background-color 9999s ease-in-out 0s;
   }
+  /* 네이티브 <select> 드롭다운(option)은 OS가 직접 그린다. 라이트 OS(특히 윈도우 Chrome)에서
+     흰 배경·흰 글씨로 떠 항목이 안 보이는 문제 방지 — 명시적으로 다크 팔레트를 강제한다. */
+  select option {
+    background-color: var(--surface-2);
+    color: var(--ink);
+  }
+  select option:checked {
+    background-color: var(--surface-3);
+    color: var(--ink);
+  }
 }

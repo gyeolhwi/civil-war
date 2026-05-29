@@ -69,7 +69,7 @@ interface DraftAssign {
 const ROLES: Role[] = ["tank", "dps", "support"];
 
 const selectClass =
-  "h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
+  "h-9 rounded-lg border border-input bg-surface-2 px-2.5 text-sm text-ink outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 [color-scheme:dark]";
 
 const MODES: {
   value: BuildMode;
