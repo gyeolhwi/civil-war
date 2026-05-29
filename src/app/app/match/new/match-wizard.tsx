@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { RoleIcon } from "@/components/ui/game-image";
+import { preloadGameImages, RoleIcon } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HEROES_BY_ROLE, ROLE_LABEL_KO, ROLE_ORDER } from "@/constants/heroes";
@@ -174,6 +174,11 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
       selected.map((id) => byId.get(id)).filter((p): p is Participant => !!p),
     [selected, byId],
   );
+
+  // 워크플로우 진입 시 영웅·맵 이미지를 미리 로드 → 맵 추첨·밴 단계에서 즉시 표시
+  useEffect(() => {
+    preloadGameImages();
+  }, []);
 
   function toggle(id: string) {
     setSelected((prev) =>
@@ -839,6 +844,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
   if (step === "ban") {
     return (
       <div className="flex flex-col gap-4">
+        <BackBar onBack={() => setStep("map")} label="맵 선정" />
         <h2 className="text-lg font-medium">영웅 밴 (선택)</h2>
         <HeroBanPicker
           banA={banA}
@@ -861,6 +867,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
   if (step === "result" && saved) {
     return (
       <div className="flex flex-col gap-5">
+        <BackBar onBack={() => setStep("ban")} label="영웅 밴" />
         <h2 className="text-lg font-medium">결과 입력</h2>
 
         <div className="flex flex-col gap-2">
@@ -964,7 +971,10 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
           />
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={copyShare}>
+            디스코드 복사
+          </Button>
           <Button onClick={submitResult} disabled={pending}>
             {pending ? "저장 중…" : "결과 저장"}
           </Button>

@@ -1,12 +1,14 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
-import { HERO_BY_CODE, ROLE_LABEL_KO } from "@/constants/heroes";
-import { MAP_BY_CODE } from "@/constants/maps";
+import { HERO_BY_CODE, HEROES, ROLE_LABEL_KO } from "@/constants/heroes";
+import { MAP_BY_CODE, MAPS } from "@/constants/maps";
 import { TIER_LABEL_KO } from "@/constants/tiers";
 import type { Role, Tier } from "@/domain/types";
 import { cn } from "@/lib/utils";
+
+// 이미지가 작아(맵 ~250KB·영웅 ~40KB) next/image 최적화보다 일반 img + 프리로드가
+// 콜드 스타트 없이 매끄럽다. 모두 /public 정적 파일.
 
 const ROLE_DOT: Record<Role, string> = {
   tank: "bg-role-tank",
@@ -14,10 +16,40 @@ const ROLE_DOT: Record<Role, string> = {
   support: "bg-role-support",
 };
 
+const ROLE_BG: Record<Role, string> = {
+  tank: "bg-role-tank/25 text-role-tank",
+  dps: "bg-role-dps/25 text-role-dps",
+  support: "bg-role-support/25 text-role-support",
+};
+
 /**
- * 역할 마크(SVG). /images/roles/<role>.svg 가 있으면 표시, 없으면 역할색 점 폴백.
- * 원본이 검은색이라 다크 테마에서 안 보이므로 brightness-0 invert로 흰색 처리.
- * SVG는 next/image 최적화 대신 일반 img로 직접 서빙.
+ * 영웅·맵 이미지를 브라우저 캐시에 미리 로드. 워크플로우 진입 시 1회 호출하면
+ * 맵 추첨·영웅 그리드 단계에서 즉시 표시된다. idle 시점에 실행.
+ */
+export function preloadGameImages() {
+  if (typeof window === "undefined") return;
+  const warm = () => {
+    for (const h of HEROES) {
+      const img = new Image();
+      img.src = h.image;
+    }
+    for (const m of MAPS) {
+      if (!m.isActive) continue;
+      const img = new Image();
+      img.src = m.image;
+    }
+  };
+  if ("requestIdleCallback" in window) {
+    (
+      window as unknown as { requestIdleCallback: (cb: () => void) => void }
+    ).requestIdleCallback(warm);
+  } else {
+    setTimeout(warm, 300);
+  }
+}
+
+/**
+ * 역할 마크(SVG, 검은색→흰색 반전). 없으면 역할색 점 폴백.
  */
 export function RoleIcon({
   role,
@@ -45,7 +77,7 @@ export function RoleIcon({
   }
 
   return (
-    // biome-ignore lint/performance/noImgElement: SVG는 최적화 없이 직접 서빙 + 필터 적용
+    // biome-ignore lint/performance/noImgElement: 정적 + onError 폴백 + 프리로드
     <img
       src={`/images/roles/${role}.svg`}
       alt={ROLE_LABEL_KO[role]}
@@ -57,15 +89,8 @@ export function RoleIcon({
   );
 }
 
-const ROLE_BG: Record<Role, string> = {
-  tank: "bg-role-tank/25 text-role-tank",
-  dps: "bg-role-dps/25 text-role-dps",
-  support: "bg-role-support/25 text-role-support",
-};
-
 /**
- * 영웅 초상. /heroes/<code>.png 가 있으면 next/image로 최적화 표시,
- * 없으면 역할색 + 이름 이니셜 폴백. 파일을 나중에 넣으면 자동 표시.
+ * 영웅 초상. /images/heroes/<code>.png 있으면 표시, 없으면 역할색+이니셜 폴백.
  */
 export function HeroImage({
   code,
@@ -96,11 +121,11 @@ export function HeroImage({
   }
 
   return (
-    <Image
+    // biome-ignore lint/performance/noImgElement: 정적 + onError 폴백 + 프리로드
+    <img
       src={hero.image}
       alt={hero.nameKo}
-      width={size}
-      height={size}
+      style={{ width: size, height: size }}
       onError={() => setFailed(true)}
       className={cn(
         "shrink-0 rounded-full object-cover animate-in fade-in duration-300",
@@ -111,7 +136,7 @@ export function HeroImage({
 }
 
 /**
- * 티어 엠블럼. /images/tiers/<tier>.png 가 있으면 표시, 없으면 티어명 첫 글자 폴백.
+ * 티어 엠블럼. /images/tiers/<tier>.png 있으면 표시, 없으면 티어명 첫 글자 폴백.
  */
 export function TierImage({
   tier,
@@ -140,11 +165,11 @@ export function TierImage({
   }
 
   return (
-    <Image
+    // biome-ignore lint/performance/noImgElement: 정적 + onError 폴백 + 프리로드
+    <img
       src={`/images/tiers/${tier}.png`}
       alt={TIER_LABEL_KO[tier]}
-      width={size}
-      height={size}
+      style={{ width: size, height: size }}
       onError={() => setFailed(true)}
       className={cn(
         "shrink-0 object-contain animate-in fade-in duration-300",
@@ -155,8 +180,8 @@ export function TierImage({
 }
 
 /**
- * 맵 이미지. /maps/<code>.png 가 있으면 next/image(fill)로 표시,
- * 없으면 그라데이션 + 맵 이름 폴백. className으로 컨테이너 크기 지정(예: h-44 w-full).
+ * 맵 이미지. /images/maps/<code>.jpg 있으면 표시(전체 보이게 contain),
+ * 없으면 그라데이션 + 이름 폴백. className으로 컨테이너 크기 지정(예: aspect-video w-full).
  */
 export function MapImage({
   code,
@@ -172,7 +197,7 @@ export function MapImage({
     return (
       <div
         className={cn(
-          "flex items-center justify-center rounded-lg bg-gradient-to-br from-surface-3 to-surface-1 text-center text-sm font-medium text-ink-muted",
+          "flex items-center justify-center bg-gradient-to-br from-surface-3 to-surface-1 text-center text-sm font-medium text-ink-muted",
           className,
         )}
       >
@@ -182,14 +207,13 @@ export function MapImage({
   }
 
   return (
-    <div className={cn("relative overflow-hidden bg-surface-1", className)}>
-      <Image
+    <div className={cn("overflow-hidden bg-surface-1", className)}>
+      {/* biome-ignore lint/performance/noImgElement: 정적 + onError 폴백 + 프리로드 */}
+      <img
         src={map.image}
         alt={map.nameKo}
-        fill
-        sizes="(max-width: 768px) 100vw, 640px"
         onError={() => setFailed(true)}
-        className="object-contain animate-in fade-in duration-300"
+        className="size-full object-contain animate-in fade-in duration-300"
       />
     </div>
   );
