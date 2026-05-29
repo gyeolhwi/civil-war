@@ -18,6 +18,10 @@ export const metadata: Metadata = {
   description: "디스코드 채널별 오버워치 내전 팀 편성·운영·기록",
 };
 
+// Supabase(싱가포르)와 함수 리전을 맞춰 서버↔DB 왕복 지연 최소화.
+// Vercel 대시보드 Settings → Functions → Region 도 Singapore로 맞추면 확실.
+export const preferredRegion = "sin1";
+
 export default function RootLayout({
   children,
 }: Readonly<{
