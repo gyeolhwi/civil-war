@@ -4,7 +4,8 @@ import Image from "next/image";
 import { useState } from "react";
 import { HERO_BY_CODE } from "@/constants/heroes";
 import { MAP_BY_CODE } from "@/constants/maps";
-import type { Role } from "@/domain/types";
+import { TIER_LABEL_KO } from "@/constants/tiers";
+import type { Role, Tier } from "@/domain/types";
 import { cn } from "@/lib/utils";
 
 const ROLE_BG: Record<Role, string> = {
@@ -54,6 +55,50 @@ export function HeroImage({
       onError={() => setFailed(true)}
       className={cn(
         "shrink-0 rounded-full object-cover animate-in fade-in duration-300",
+        className,
+      )}
+    />
+  );
+}
+
+/**
+ * 티어 엠블럼. /images/tiers/<tier>.png 가 있으면 표시, 없으면 티어명 첫 글자 폴백.
+ */
+export function TierImage({
+  tier,
+  size = 22,
+  className,
+}: {
+  tier: Tier;
+  size?: number;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <span
+        style={{ width: size, height: size }}
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded text-[10px] font-semibold text-ink-subtle",
+          className,
+        )}
+        title={TIER_LABEL_KO[tier]}
+      >
+        {TIER_LABEL_KO[tier].slice(0, 1)}
+      </span>
+    );
+  }
+
+  return (
+    <Image
+      src={`/images/tiers/${tier}.png`}
+      alt={TIER_LABEL_KO[tier]}
+      width={size}
+      height={size}
+      onError={() => setFailed(true)}
+      className={cn(
+        "shrink-0 object-contain animate-in fade-in duration-300",
         className,
       )}
     />

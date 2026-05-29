@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { TierImage } from "@/components/ui/game-image";
 import { ROLE_LABEL_KO } from "@/constants/heroes";
 import { TIER_LABEL_KO } from "@/constants/tiers";
 import type { Tier } from "@/domain/types";
@@ -57,7 +58,12 @@ export function MembersList({ members }: { members: MemberView[] }) {
                 <span className="text-xs text-ink-subtle">티어 미입력</span>
               )}
               {m.ratings.map((r) => (
-                <Badge key={r.role} variant="outline">
+                <Badge
+                  key={r.role}
+                  variant="outline"
+                  className="h-6 gap-1 pl-1"
+                >
+                  <TierImage tier={r.tier as Tier} size={16} />
                   {ROLE_LABEL_KO[r.role]} {TIER_LABEL_KO[r.tier as Tier]}{" "}
                   {r.division}
                 </Badge>

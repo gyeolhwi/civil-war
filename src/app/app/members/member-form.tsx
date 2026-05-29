@@ -12,13 +12,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { HeroImage } from "@/components/ui/game-image";
+import { HeroImage, TierImage } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HERO_BY_CODE, HEROES, ROLE_LABEL_KO } from "@/constants/heroes";
 import { MAPS, MODE_LABEL_KO } from "@/constants/maps";
 import { TIER_LABEL_KO, TIER_ORDER } from "@/constants/tiers";
-import type { GameMode, Role } from "@/domain/types";
+import type { GameMode, Role, Tier } from "@/domain/types";
 import { cn } from "@/lib/utils";
 import { saveMember } from "./actions";
 import { type MemberFormValues, memberFormSchema } from "./schema";
@@ -253,6 +253,11 @@ export function MemberForm({
                       />
                       {ROLE_LABEL_KO[r]}
                     </label>
+                    <TierImage
+                      tier={state.tier as Tier}
+                      size={26}
+                      className={cn(!state.enabled && "opacity-30")}
+                    />
                     <select
                       className={cn(selectClass, "flex-1")}
                       value={state.tier}
