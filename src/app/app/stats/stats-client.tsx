@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { HeroImage } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -214,7 +215,10 @@ function TeamColumn({
               {m.battleTag}
             </span>
             {m.heroUsed && (
-              <span className="text-ink-subtle">{heroName(m.heroUsed)}</span>
+              <span className="flex items-center gap-1 text-ink-subtle">
+                <HeroImage code={m.heroUsed} size={18} />
+                {heroName(m.heroUsed)}
+              </span>
             )}
           </li>
         ))}

@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { HeroImage } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HERO_BY_CODE, HEROES, ROLE_LABEL_KO } from "@/constants/heroes";
@@ -300,8 +301,9 @@ export function MemberForm({
                   >
                     <Badge
                       variant="default"
-                      className="h-8 cursor-pointer gap-1 px-3 text-sm"
+                      className="h-8 cursor-pointer gap-1 pr-3 pl-1 text-sm"
                     >
+                      <HeroImage code={code} size={22} />
                       {HERO_BY_CODE[code]?.nameKo ?? code}
                       <span aria-hidden>×</span>
                     </Badge>
@@ -344,11 +346,12 @@ export function MemberForm({
                             <Badge
                               variant={active ? "secondary" : "outline"}
                               className={cn(
-                                "h-8 cursor-pointer px-3 text-sm",
+                                "h-8 cursor-pointer gap-1 pr-3 pl-1 text-sm",
                                 active && "ring-1 ring-primary",
                                 disabled && "cursor-not-allowed opacity-40",
                               )}
                             >
+                              <HeroImage code={h.code} size={22} />
                               {h.nameKo}
                             </Badge>
                           </button>

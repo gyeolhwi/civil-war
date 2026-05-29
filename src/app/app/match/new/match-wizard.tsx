@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MapImage } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HEROES_BY_ROLE, ROLE_LABEL_KO, ROLE_ORDER } from "@/constants/heroes";
@@ -803,16 +804,23 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
     return (
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-medium">맵 선정</h2>
-        <div className="rounded-lg border border-border/60 px-4 py-5">
-          <p className="text-sm text-ink-subtle">선택된 맵</p>
-          <p className="text-xl font-semibold">
-            {MAP_BY_CODE[mapSel.mapCode]?.nameKo ?? mapSel.mapCode}
-          </p>
-          <p className="mt-2 text-sm text-ink-subtle">
-            {mapSel.fromFallback
-              ? "선호 맵이 없어 전체 맵에서 무작위 선정"
-              : `선호: ${mapSel.preferredBy.map((p) => p.battleTag).join(", ")}`}
-          </p>
+        <div className="overflow-hidden rounded-lg border border-border/60">
+          <MapImage
+            key={mapSel.mapCode}
+            code={mapSel.mapCode}
+            className="h-44 w-full"
+          />
+          <div className="px-4 py-4">
+            <p className="text-sm text-ink-subtle">선택된 맵</p>
+            <p className="text-xl font-semibold">
+              {MAP_BY_CODE[mapSel.mapCode]?.nameKo ?? mapSel.mapCode}
+            </p>
+            <p className="mt-2 text-sm text-ink-subtle">
+              {mapSel.fromFallback
+                ? "선호 맵이 없어 전체 맵에서 무작위 선정"
+                : `선호: ${mapSel.preferredBy.map((p) => p.battleTag).join(", ")}`}
+            </p>
+          </div>
         </div>
         <div className="flex justify-end gap-2">
           <Button
