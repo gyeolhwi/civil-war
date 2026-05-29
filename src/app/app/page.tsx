@@ -35,11 +35,14 @@ const MENUS = [
 
 export default async function Dashboard() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // 채널 조회는 user.id가 필요 없으므로 인증 확인과 병렬 실행
+  const [
+    {
+      data: { user },
+    },
+    channel,
+  ] = await Promise.all([supabase.auth.getUser(), getMyChannel()]);
   const username = user?.email?.split("@")[0] ?? "관리자";
-  const channel = await getMyChannel();
   const { data: admin } = await supabase
     .from("admins")
     .select("display_name")
