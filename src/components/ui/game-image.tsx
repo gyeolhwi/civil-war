@@ -15,7 +15,9 @@ const ROLE_DOT: Record<Role, string> = {
 };
 
 /**
- * 역할 마크. /images/roles/<role>.png 가 있으면 표시, 없으면 역할색 점 폴백.
+ * 역할 마크(SVG). /images/roles/<role>.svg 가 있으면 표시, 없으면 역할색 점 폴백.
+ * 원본이 검은색이라 다크 테마에서 안 보이므로 brightness-0 invert로 흰색 처리.
+ * SVG는 next/image 최적화 대신 일반 img로 직접 서빙.
  */
 export function RoleIcon({
   role,
@@ -43,13 +45,14 @@ export function RoleIcon({
   }
 
   return (
-    <Image
-      src={`/images/roles/${role}.png`}
+    // biome-ignore lint/performance/noImgElement: SVG는 최적화 없이 직접 서빙 + 필터 적용
+    <img
+      src={`/images/roles/${role}.svg`}
       alt={ROLE_LABEL_KO[role]}
       width={size}
       height={size}
       onError={() => setFailed(true)}
-      className={cn("shrink-0 object-contain", className)}
+      className={cn("shrink-0 object-contain brightness-0 invert", className)}
     />
   );
 }
