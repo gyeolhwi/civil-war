@@ -30,6 +30,7 @@ export function MapRoulette({
 }) {
   const [display, setDisplay] = useState(finalCode);
   const [spinning, setSpinning] = useState(!reducedMotion());
+  const [flash, setFlash] = useState(false); // 안착 직후 글로우 버스트
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: 마운트 시 1회만 추첨 연출
   useEffect(() => {
@@ -50,6 +51,10 @@ export function MapRoulette({
       } else {
         setDisplay(finalCode);
         setSpinning(false);
+        setFlash(true);
+        timer = setTimeout(() => {
+          if (!cancelled) setFlash(false);
+        }, 800);
       }
     };
     timer = setTimeout(tick, delay);
@@ -63,12 +68,20 @@ export function MapRoulette({
 
   return (
     <>
-      <div className="relative">
+      <div
+        className={cn(
+          "relative transition-shadow duration-500",
+          !spinning && "ring-2 ring-primary ring-inset",
+          flash && "shadow-2xl shadow-primary/50",
+        )}
+      >
         <MapImage
           code={display}
           className={cn(
             "aspect-video w-full transition-all duration-150",
-            spinning && "scale-[0.97] blur-[2px] brightness-75",
+            spinning
+              ? "scale-[0.97] blur-[2px] brightness-75"
+              : "animate-in zoom-in-95 duration-500 ease-out",
           )}
         />
         {spinning && (
@@ -77,6 +90,11 @@ export function MapRoulette({
               🎰 맵 추첨 중…
             </span>
           </div>
+        )}
+        {!spinning && (
+          <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-lg animate-in fade-in zoom-in-50 duration-300">
+            ✓ 확정
+          </span>
         )}
       </div>
       <div className="px-4 py-4">
