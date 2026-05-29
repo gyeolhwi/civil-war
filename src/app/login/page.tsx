@@ -5,10 +5,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login } from "./actions";
+import { LoginButton } from "./submit-button";
 
 export default async function LoginPage({
   searchParams,
@@ -54,9 +54,7 @@ export default async function LoginPage({
                     : "아이디 또는 비밀번호가 올바르지 않습니다."}
               </p>
             )}
-            <Button type="submit" className="mt-2 w-full">
-              로그인
-            </Button>
+            <LoginButton />
           </form>
         </CardContent>
       </Card>
