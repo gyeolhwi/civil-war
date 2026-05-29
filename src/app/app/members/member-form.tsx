@@ -160,7 +160,7 @@ export function MemberForm({
       }}
     >
       <DialogTrigger render={trigger as React.ReactElement} />
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{member ? "멤버 수정" : "멤버 등록"}</DialogTitle>
           <DialogDescription>
@@ -298,7 +298,10 @@ export function MemberForm({
                     onClick={() => toggleHero(code)}
                     title="클릭하면 제거"
                   >
-                    <Badge variant="default" className="cursor-pointer gap-1">
+                    <Badge
+                      variant="default"
+                      className="h-8 cursor-pointer gap-1 px-3 text-sm"
+                    >
                       {HERO_BY_CODE[code]?.nameKo ?? code}
                       <span aria-hidden>×</span>
                     </Badge>
@@ -317,17 +320,17 @@ export function MemberForm({
               onChange={(e) => setHeroQuery(e.target.value)}
             />
 
-            {/* 역할별 그룹 — 선택된 건 회색 처리 */}
-            <div className="flex max-h-48 flex-col gap-2 overflow-y-auto rounded-lg border border-border/60 p-2">
+            {/* 역할별 그룹 — 선택된 건 강조. 내부 스크롤 없이 다이얼로그가 스크롤 */}
+            <div className="flex flex-col gap-3 rounded-lg border border-border/60 p-3">
               {ROLES.map((role) => {
                 const list = filteredHeroes.filter((h) => h.role === role);
                 if (list.length === 0) return null;
                 return (
-                  <div key={role} className="flex flex-col gap-1">
-                    <span className="text-xs text-ink-subtle">
+                  <div key={role} className="flex flex-col gap-1.5">
+                    <span className="text-xs font-medium text-ink-subtle">
                       {ROLE_LABEL_KO[role]}
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {list.map((h) => {
                         const active = heroCodes.includes(h.code);
                         const disabled = !active && heroCodes.length >= 5;
@@ -341,7 +344,7 @@ export function MemberForm({
                             <Badge
                               variant={active ? "secondary" : "outline"}
                               className={cn(
-                                "cursor-pointer",
+                                "h-8 cursor-pointer px-3 text-sm",
                                 active && "ring-1 ring-primary",
                                 disabled && "cursor-not-allowed opacity-40",
                               )}
