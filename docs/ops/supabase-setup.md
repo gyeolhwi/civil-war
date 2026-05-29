@@ -56,6 +56,23 @@ from public.admins a left join public.channels c on c.owner_admin_id = a.id;
 - 로그인 입력: 아이디만(`admin`) 또는 이메일 전체(`x@gmail.com`) 둘 다 됨
   (코드가 `@` 유무로 판단 — `src/app/login/actions.ts`)
 
+## 5. 채널·관리자 일괄 발급 (스크립트) — 권장
+
+2·3번(유저 생성 + admins + 채널)을 한 번에 처리하는 운영 도구.
+
+```bash
+# .env.local 에 서버 전용 키 추가 (NEXT_PUBLIC_ 접두사 금지 = 브라우저 노출 안 됨)
+SUPABASE_SERVICE_ROLE_KEY=<service_role secret 키>
+
+node --env-file=.env.local scripts/provision-channel.mjs \
+  --user=벙커 --pass='비밀번호' --channel="벙커 내전방" [--super]
+```
+
+- 동작: `벙커@civilwar.local` auth 유저 생성(인증완료) → `admins` 행 → 채널 생성(소유자 연결) → **anon 로그인 검증**까지.
+- 멱등: 같은 유저면 비번 갱신, 같은 소유자+채널명이면 건너뜀.
+- `--super`: 슈퍼관리자 권한 부여.
+- ⚠️ `SUPABASE_SERVICE_ROLE_KEY`는 **접두사 없이** 두면 서버(node 스크립트)에서만 읽히고 클라이언트 번들엔 포함되지 않음 (§0의 "넣지 말 것"은 `NEXT_PUBLIC_`로 노출하지 말라는 뜻). 발급이 끝나면 이 줄은 지워도 됨.
+
 ---
 
 ## 트러블슈팅
@@ -71,4 +88,5 @@ from public.admins a left join public.channels c on c.owner_admin_id = a.id;
 ## 현재 프로젝트 상태 (2026-05-29)
 
 - 프로젝트 ref: `dxeuukenmhfnsrhiggri`
-- 1·2 완료. 3(시드)은 계정 `gyeori0626`로 실행 필요 (STATUS "다음 할 일 0")
+- 1·2·3 완료. 슈퍼관리자 `gyeori0626` (로그인 아이디 `gyeori0626`, 이메일 `gyeori0626@civilwar.local`로 전환됨) + "테스트 내전 채널" 소유.
+- 추가 채널·관리자는 **5번 스크립트**로 발급 (검증됨).
