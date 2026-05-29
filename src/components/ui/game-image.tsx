@@ -2,11 +2,57 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { HERO_BY_CODE } from "@/constants/heroes";
+import { HERO_BY_CODE, ROLE_LABEL_KO } from "@/constants/heroes";
 import { MAP_BY_CODE } from "@/constants/maps";
 import { TIER_LABEL_KO } from "@/constants/tiers";
 import type { Role, Tier } from "@/domain/types";
 import { cn } from "@/lib/utils";
+
+const ROLE_DOT: Record<Role, string> = {
+  tank: "bg-role-tank",
+  dps: "bg-role-dps",
+  support: "bg-role-support",
+};
+
+/**
+ * 역할 마크. /images/roles/<role>.png 가 있으면 표시, 없으면 역할색 점 폴백.
+ */
+export function RoleIcon({
+  role,
+  size = 16,
+  className,
+}: {
+  role: Role;
+  size?: number;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <span
+        style={{ width: size * 0.6, height: size * 0.6 }}
+        className={cn(
+          "inline-block shrink-0 rounded-full",
+          ROLE_DOT[role],
+          className,
+        )}
+        title={ROLE_LABEL_KO[role]}
+      />
+    );
+  }
+
+  return (
+    <Image
+      src={`/images/roles/${role}.png`}
+      alt={ROLE_LABEL_KO[role]}
+      width={size}
+      height={size}
+      onError={() => setFailed(true)}
+      className={cn("shrink-0 object-contain", className)}
+    />
+  );
+}
 
 const ROLE_BG: Record<Role, string> = {
   tank: "bg-role-tank/25 text-role-tank",

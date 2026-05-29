@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { HeroImage, TierImage } from "@/components/ui/game-image";
+import { HeroImage, RoleIcon, TierImage } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HERO_BY_CODE, HEROES, ROLE_LABEL_KO } from "@/constants/heroes";
@@ -242,7 +242,7 @@ export function MemberForm({
                     key={r}
                     className="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2"
                   >
-                    <label className="flex w-16 shrink-0 items-center gap-2 text-sm">
+                    <label className="flex w-20 shrink-0 items-center gap-1.5 text-sm">
                       <input
                         type="checkbox"
                         checked={state.enabled}
@@ -251,6 +251,7 @@ export function MemberForm({
                         }
                         className="size-4 accent-primary"
                       />
+                      <RoleIcon role={r} size={16} />
                       {ROLE_LABEL_KO[r]}
                     </label>
                     <TierImage
@@ -334,7 +335,8 @@ export function MemberForm({
                 if (list.length === 0) return null;
                 return (
                   <div key={role} className="flex flex-col gap-1.5">
-                    <span className="text-xs font-medium text-ink-subtle">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-ink-subtle">
+                      <RoleIcon role={role} size={16} />
                       {ROLE_LABEL_KO[role]}
                     </span>
                     <div className="flex flex-wrap gap-2">

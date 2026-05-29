@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { HeroImage } from "@/components/ui/game-image";
+import { HeroImage, RoleIcon } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import {
   HERO_BY_CODE,
@@ -137,7 +137,8 @@ export function HeroBanPicker({
           if (list.length === 0) return null;
           return (
             <div key={role} className="flex flex-col gap-2">
-              <span className="text-xs font-medium text-ink-subtle">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-ink-subtle">
+                <RoleIcon role={role} size={16} />
                 {ROLE_LABEL_KO[role]}
               </span>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(76px,1fr))] gap-2">

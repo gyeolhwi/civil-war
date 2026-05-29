@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TierImage } from "@/components/ui/game-image";
+import { RoleIcon, TierImage } from "@/components/ui/game-image";
 import { ROLE_LABEL_KO } from "@/constants/heroes";
 import { TIER_LABEL_KO } from "@/constants/tiers";
 import type { Tier } from "@/domain/types";
@@ -45,13 +45,15 @@ export function MembersList({ members }: { members: MemberView[] }) {
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {m.primaryRole && (
-                <Badge variant="secondary">
-                  주 {ROLE_LABEL_KO[m.primaryRole]}
+                <Badge variant="secondary" className="gap-1 pl-1.5">
+                  <RoleIcon role={m.primaryRole} size={14} />주{" "}
+                  {ROLE_LABEL_KO[m.primaryRole]}
                 </Badge>
               )}
               {m.secondaryRole && (
-                <Badge variant="outline">
-                  부 {ROLE_LABEL_KO[m.secondaryRole]}
+                <Badge variant="outline" className="gap-1 pl-1.5">
+                  <RoleIcon role={m.secondaryRole} size={14} />부{" "}
+                  {ROLE_LABEL_KO[m.secondaryRole]}
                 </Badge>
               )}
               {m.ratings.length === 0 && (
