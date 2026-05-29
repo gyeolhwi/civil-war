@@ -68,8 +68,7 @@ export function comboPenalty(team: TeamSlot[]): number {
   if (dps.length === 2) {
     const a = new Set(dps[0].ownedSubRoles);
     const b = new Set(dps[1].ownedSubRoles);
-    const allSame =
-      a.size === 1 && b.size === 1 && [...a][0] === [...b][0];
+    const allSame = a.size === 1 && b.size === 1 && [...a][0] === [...b][0];
     if (allSame) penalty += COMBO_PENALTY.dpsSameType;
   }
 
