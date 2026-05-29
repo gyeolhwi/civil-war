@@ -30,10 +30,14 @@ export function MapRoulette({
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     let delay = 50;
+    // 25개 전부가 아니라 미리 섞은 소수만 순환 → 로드/캐시 부담 최소화
+    const seq = [...POOL].sort(() => Math.random() - 0.5).slice(0, 10);
+    let i = 0;
     const tick = () => {
       if (cancelled) return;
       if (delay < 340) {
-        setDisplay(POOL[Math.floor(Math.random() * POOL.length)]);
+        setDisplay(seq[i % seq.length]);
+        i += 1;
         delay *= 1.16;
         timer = setTimeout(tick, delay);
       } else {
