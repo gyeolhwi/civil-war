@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getMyChannel } from "@/lib/channel";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "./actions";
 
@@ -38,6 +39,13 @@ export default async function Dashboard() {
     data: { user },
   } = await supabase.auth.getUser();
   const username = user?.email?.split("@")[0] ?? "관리자";
+  const channel = await getMyChannel();
+  const { data: admin } = await supabase
+    .from("admins")
+    .select("display_name")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
+  const displayName = admin?.display_name || username;
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
@@ -45,8 +53,11 @@ export default async function Dashboard() {
         <div>
           <p className="text-sm text-ink-subtle">채널 대시보드</p>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            {username}
+            {channel?.name ?? "채널 미배정"}
           </h1>
+          <p className="mt-0.5 text-sm text-ink-subtle">
+            관리자 · {displayName}
+          </p>
         </div>
         <form action={logout}>
           <Button type="submit" variant="secondary" size="sm">
