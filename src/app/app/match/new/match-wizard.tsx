@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -668,9 +669,11 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
           <span className="text-sm font-medium">
             {label} {turn === (tone === "a" ? "A" : "B") && "← 차례"}
           </span>
-          <span className="tabular-nums text-xs text-ink-subtle">
-            {scoreOf(list).toLocaleString()}
-          </span>
+          <AnimatedNumber
+            value={scoreOf(list)}
+            flash
+            className="text-xs text-ink-subtle"
+          />
         </div>
         <ul className="flex flex-col gap-0.5 text-sm">
           {[...list]
@@ -773,7 +776,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
           <TeamCard team={candidate.teamB} label="B팀" tone="b" byId={byId} />
         </div>
         <p className="text-center text-sm text-ink-subtle">
-          점수차 {candidate.diff.toLocaleString()}
+          점수차 <AnimatedNumber value={candidate.diff} />
         </p>
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="secondary" onClick={copyShare}>
@@ -1072,9 +1075,10 @@ function TeamCard({
     >
       <div className="mb-2 flex items-baseline justify-between">
         <span className="font-medium">{label}</span>
-        <span className="tabular-nums text-sm text-ink-subtle">
-          {team.finalScore.toLocaleString()}
-        </span>
+        <AnimatedNumber
+          value={team.finalScore}
+          className="text-sm text-ink-subtle"
+        />
       </div>
       <ul className="flex flex-col gap-1">
         {team.members.map((m) => (
