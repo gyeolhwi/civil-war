@@ -35,18 +35,25 @@ export function HeroBanPicker({
   const q = query.trim();
 
   function pick(code: string) {
-    // 밴된 영웅을 다시 누르면(어느 팀이든) 해제 — 토글
+    // 밴된 영웅을 다시 누르면(어느 팀이든) 해제 — 토글. 비워진 팀이 다음 차례
     if (code === banA) {
       setBanA("");
+      setTarget("A");
       return;
     }
     if (code === banB) {
       setBanB("");
+      setTarget("B");
       return;
     }
-    // 미밴 영웅 → 활성 팀이 밴 (기존 밴 있으면 교체). 중복 밴은 위 토글로 차단됨
-    if (target === "A") setBanA(code);
-    else setBanB(code);
+    // 미밴 영웅 → 활성 팀이 밴 후, 아직 빈 팀이 있으면 자동으로 그쪽으로 전환
+    if (target === "A") {
+      setBanA(code);
+      setTarget(banB ? "A" : "B");
+    } else {
+      setBanB(code);
+      setTarget(banA ? "B" : "A");
+    }
   }
 
   return (
@@ -109,8 +116,10 @@ export function HeroBanPicker({
       </div>
 
       <p className="text-xs text-ink-subtle">
-        <span className="font-medium text-foreground">{target}팀</span>이 밴할
-        영웅을 누르세요 · 밴된 영웅을 다시 누르면 해제 · 팀 전환은 위 슬롯 클릭
+        영웅을 누르면{" "}
+        <span className="font-medium text-foreground">{target}팀</span>이 밴 (빈
+        팀으로 자동 전환) · 밴된 영웅 다시 누르면 해제 · 팀 직접 지정은 슬롯
+        클릭
       </p>
 
       <Input
