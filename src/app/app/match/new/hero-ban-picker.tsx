@@ -32,19 +32,21 @@ export function HeroBanPicker({
 }) {
   const [target, setTarget] = useState<"A" | "B">("A");
   const [query, setQuery] = useState("");
-  const current = target === "A" ? banA : banB;
   const q = query.trim();
 
   function pick(code: string) {
-    const otherBan = target === "A" ? banB : banA;
-    if (code === otherBan) return; // 상대 팀이 이미 밴한 영웅은 불가 (중복 밴 방지)
-    const set = target === "A" ? setBanA : setBanB;
-    if (current === code) {
-      set(""); // 같은 영웅 재클릭 → 해제
-    } else {
-      set(code);
-      setTarget(target === "A" ? "B" : "A");
+    // 밴된 영웅을 다시 누르면(어느 팀이든) 해제 — 토글
+    if (code === banA) {
+      setBanA("");
+      return;
     }
+    if (code === banB) {
+      setBanB("");
+      return;
+    }
+    // 미밴 영웅 → 활성 팀이 밴 (기존 밴 있으면 교체). 중복 밴은 위 토글로 차단됨
+    if (target === "A") setBanA(code);
+    else setBanB(code);
   }
 
   return (
@@ -106,6 +108,11 @@ export function HeroBanPicker({
         })}
       </div>
 
+      <p className="text-xs text-ink-subtle">
+        <span className="font-medium text-foreground">{target}팀</span>이 밴할
+        영웅을 누르세요 · 밴된 영웅을 다시 누르면 해제 · 팀 전환은 위 슬롯 클릭
+      </p>
+
       <Input
         placeholder="영웅 이름 검색"
         value={query}
@@ -128,23 +135,20 @@ export function HeroBanPicker({
                 {list.map((h) => {
                   const banSide =
                     h.code === banA ? "A" : h.code === banB ? "B" : null;
-                  const onCurrent = h.code === current;
-                  const takenByOther = banSide !== null && banSide !== target;
                   return (
                     <button
                       key={h.code}
                       type="button"
                       onClick={() => pick(h.code)}
-                      disabled={takenByOther}
                       title={
-                        takenByOther ? `${banSide}팀이 이미 밴함` : h.nameKo
+                        banSide ? `${banSide}팀 밴 (눌러서 해제)` : h.nameKo
                       }
                       className={cn(
                         "group flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all",
-                        onCurrent
+                        banSide === target
                           ? "border-primary bg-primary/10"
-                          : takenByOther
-                            ? "cursor-not-allowed border-destructive/40 bg-destructive/5"
+                          : banSide
+                            ? "border-destructive/50 bg-destructive/10"
                             : "border-transparent hover:border-border hover:bg-surface-2",
                       )}
                     >
@@ -152,11 +156,7 @@ export function HeroBanPicker({
                         <HeroImage
                           code={h.code}
                           size={60}
-                          className={cn(
-                            "rounded-lg transition-transform",
-                            !takenByOther && "group-hover:scale-105",
-                            takenByOther && "opacity-40 grayscale",
-                          )}
+                          className="rounded-lg transition-transform group-hover:scale-105"
                         />
                         {banSide && (
                           <span className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white ring-2 ring-background">
