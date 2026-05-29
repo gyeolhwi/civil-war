@@ -43,6 +43,7 @@ import {
   saveResult,
   updateMapBan,
 } from "../actions";
+import { HeroBanPicker } from "./hero-ban-picker";
 
 type Step =
   | "select"
@@ -839,48 +840,12 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
     return (
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-medium">영웅 밴 (선택)</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="banA">A팀 밴</Label>
-            <select
-              id="banA"
-              className={selectClass}
-              value={banA}
-              onChange={(e) => setBanA(e.target.value)}
-            >
-              <option value="">밴 없음</option>
-              {ROLES.map((role) => (
-                <optgroup key={role} label={ROLE_LABEL_KO[role]}>
-                  {HEROES_BY_ROLE[role].map((h) => (
-                    <option key={h.code} value={h.code}>
-                      {h.nameKo}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="banB">B팀 밴</Label>
-            <select
-              id="banB"
-              className={selectClass}
-              value={banB}
-              onChange={(e) => setBanB(e.target.value)}
-            >
-              <option value="">밴 없음</option>
-              {ROLES.map((role) => (
-                <optgroup key={role} label={ROLE_LABEL_KO[role]}>
-                  {HEROES_BY_ROLE[role].map((h) => (
-                    <option key={h.code} value={h.code}>
-                      {h.nameKo}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-        </div>
+        <HeroBanPicker
+          banA={banA}
+          banB={banB}
+          setBanA={setBanA}
+          setBanB={setBanB}
+        />
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={copyShare}>
             디스코드 복사
