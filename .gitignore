@@ -51,11 +51,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
+# env files (예시 템플릿만 추적)
 .env
 .env.local
 .env.*.local
 .env*
+!.env.local.example
 
 # vercel
 .vercel
