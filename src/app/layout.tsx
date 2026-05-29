@@ -35,7 +35,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <NextTopLoader color="#5e6ad2" height={3} showSpinner={false} />
         {children}
-        <Toaster />
+        <Toaster theme="dark" />
       </body>
     </html>
   );

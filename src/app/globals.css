@@ -144,6 +144,16 @@
     @apply font-sans;
     color-scheme: dark;
   }
+  /* 라이트 OS/윈도우에서 브라우저 자동완성이 입력칸을 흰 배경·검은 글씨로 덮는 문제 방지 */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface-2) inset;
+    caret-color: var(--foreground);
+    transition: background-color 9999s ease-in-out 0s;
+  }
   /* 접근성: 모션 줄이기 선호 시 전환 최소화 (opacity-only fallback) */
   @media (prefers-reduced-motion: reduce) {
     *,
