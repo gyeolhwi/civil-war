@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { HERO_BY_CODE, HEROES, ROLE_LABEL_KO } from "@/constants/heroes";
-import { MAP_BY_CODE, MAPS } from "@/constants/maps";
+import { MAP_BY_CODE, MAPS, MODE_LABEL_KO } from "@/constants/maps";
 import { TIER_LABEL_KO } from "@/constants/tiers";
-import type { Role, Tier } from "@/domain/types";
+import type { GameMode, Role, Tier } from "@/domain/types";
 import { cn } from "@/lib/utils";
 
 // 이미지가 작아(맵 ~250KB·영웅 ~40KB) next/image 최적화보다 일반 img + 프리로드가
@@ -85,6 +85,47 @@ export function RoleIcon({
       height={size}
       onError={() => setFailed(true)}
       className={cn("shrink-0 object-contain brightness-0 invert", className)}
+    />
+  );
+}
+
+/**
+ * 맵 유형(게임 모드) 아이콘. /images/modes/<mode>.png 있으면 표시, 없으면 모드명 첫 글자 폴백.
+ */
+export function ModeIcon({
+  mode,
+  size = 16,
+  className,
+}: {
+  mode: GameMode;
+  size?: number;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <span
+        style={{ width: size, height: size }}
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center text-[10px] font-semibold text-ink-subtle",
+          className,
+        )}
+        title={MODE_LABEL_KO[mode]}
+      >
+        {MODE_LABEL_KO[mode].slice(0, 1)}
+      </span>
+    );
+  }
+
+  return (
+    // biome-ignore lint/performance/noImgElement: 정적 + onError 폴백
+    <img
+      src={`/images/modes/${mode}.png`}
+      alt={MODE_LABEL_KO[mode]}
+      style={{ width: size, height: size }}
+      onError={() => setFailed(true)}
+      className={cn("shrink-0 object-contain", className)}
     />
   );
 }

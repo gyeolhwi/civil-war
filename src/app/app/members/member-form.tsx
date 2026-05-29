@@ -12,7 +12,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { HeroImage, RoleIcon, TierImage } from "@/components/ui/game-image";
+import {
+  HeroImage,
+  ModeIcon,
+  RoleIcon,
+  TierImage,
+} from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HERO_BY_CODE, HEROES, ROLE_LABEL_KO } from "@/constants/heroes";
@@ -377,7 +382,8 @@ export function MemberForm({
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-2">
               {mapsByMode.map(({ mode, maps }) => (
                 <div key={mode} className="flex flex-col gap-1">
-                  <span className="text-xs text-ink-subtle">
+                  <span className="flex items-center gap-1.5 text-xs text-ink-subtle">
+                    <ModeIcon mode={mode} size={15} />
                     {MODE_LABEL_KO[mode]}
                   </span>
                   <div className="flex flex-wrap gap-2">

@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { HeroImage, RoleIcon } from "@/components/ui/game-image";
+import { HeroImage, ModeIcon, RoleIcon } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -139,8 +139,11 @@ function MatchCard({ match }: { match: MatchView }) {
             {BUILD_MODE_LABEL[match.buildMode] ?? match.buildMode}
           </Badge>
           {match.mapCode && (
-            <span className="text-ink-subtle">
-              🗺️ {MAP_BY_CODE[match.mapCode]?.nameKo ?? match.mapCode}
+            <span className="flex items-center gap-1 text-ink-subtle">
+              {MAP_BY_CODE[match.mapCode] && (
+                <ModeIcon mode={MAP_BY_CODE[match.mapCode].mode} size={14} />
+              )}
+              {MAP_BY_CODE[match.mapCode]?.nameKo ?? match.mapCode}
             </span>
           )}
           {resultPending ? (

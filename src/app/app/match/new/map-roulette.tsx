@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapImage } from "@/components/ui/game-image";
+import { MapImage, ModeIcon } from "@/components/ui/game-image";
 import { MAP_BY_CODE, MAPS } from "@/constants/maps";
 import { cn } from "@/lib/utils";
 
@@ -93,10 +93,11 @@ export function MapRoulette({
         <p className="text-sm text-ink-subtle">선택된 맵</p>
         <p
           className={cn(
-            "text-xl font-semibold transition-opacity",
+            "flex items-center gap-2 text-xl font-semibold transition-opacity",
             spinning && "opacity-40",
           )}
         >
+          {finalMap && !spinning && <ModeIcon mode={finalMap.mode} size={22} />}
           {spinning
             ? (MAP_BY_CODE[display]?.nameKo ?? "…")
             : (finalMap?.nameKo ?? finalCode)}
