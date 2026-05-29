@@ -12,11 +12,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MapImage } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HEROES_BY_ROLE, ROLE_LABEL_KO, ROLE_ORDER } from "@/constants/heroes";
-import { MAP_BY_CODE } from "@/constants/maps";
 import { buildDiscordText, type ShareTeam } from "@/domain/discord";
 import {
   currentTurn,
@@ -44,6 +42,7 @@ import {
   updateMapBan,
 } from "../actions";
 import { HeroBanPicker } from "./hero-ban-picker";
+import { MapRoulette } from "./map-roulette";
 
 type Step =
   | "select"
@@ -150,6 +149,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [saved, setSaved] = useState<SavedMatch | null>(null);
   const [mapSel, setMapSel] = useState<MapSelection | null>(null);
+  const [mapNonce, setMapNonce] = useState(0); // 추첨 연출 재시작용 key
   const [banA, setBanA] = useState("");
   const [banB, setBanB] = useState("");
   const [winner, setWinner] = useState<"A" | "B" | "draw">("A");
@@ -194,6 +194,11 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
     }
     setCandidate(c);
     setStep("confirm");
+  }
+
+  function rollMap() {
+    setMapSel(selectMap(selectedParticipants));
+    setMapNonce((n) => n + 1); // 매번 추첨 연출 재시작
   }
 
   function resetDraft() {
@@ -314,7 +319,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
         return;
       }
       setSaved(res.data);
-      setMapSel(selectMap(selectedParticipants));
+      rollMap();
       setBanA("");
       setBanB("");
       setStep("map");
@@ -330,7 +335,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
         return;
       }
       setSaved(res.data);
-      setMapSel(selectMap(selectedParticipants));
+      rollMap();
       setBanA("");
       setBanB("");
       resetResult();
@@ -805,28 +810,16 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
     return (
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-medium">맵 선정</h2>
-        <div
-          key={mapSel.mapCode}
-          className="overflow-hidden rounded-lg border border-border/60 animate-in fade-in zoom-in-95 duration-500 ease-out"
-        >
-          <MapImage code={mapSel.mapCode} className="aspect-video w-full" />
-          <div className="px-4 py-4">
-            <p className="text-sm text-ink-subtle">선택된 맵</p>
-            <p className="text-xl font-semibold">
-              {MAP_BY_CODE[mapSel.mapCode]?.nameKo ?? mapSel.mapCode}
-            </p>
-            <p className="mt-2 text-sm text-ink-subtle">
-              {mapSel.fromFallback
-                ? "선호 맵이 없어 전체 맵에서 무작위 선정"
-                : `선호: ${mapSel.preferredBy.map((p) => p.battleTag).join(", ")}`}
-            </p>
-          </div>
+        <div className="overflow-hidden rounded-lg border border-border/60">
+          <MapRoulette
+            key={mapNonce}
+            finalCode={mapSel.mapCode}
+            fromFallback={mapSel.fromFallback}
+            preferredBy={mapSel.preferredBy.map((p) => p.battleTag)}
+          />
         </div>
         <div className="flex justify-end gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => setMapSel(selectMap(selectedParticipants))}
-          >
+          <Button variant="secondary" onClick={() => rollMap()}>
             다시 추첨
           </Button>
           <Button onClick={() => setStep("ban")}>다음</Button>
