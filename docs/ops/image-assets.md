@@ -1,6 +1,6 @@
 # 이미지 자산 파일명 (직접 넣기)
 
-경로 규약: 영웅 `public/images/heroes/<code>.png`, 맵 `public/images/maps/<code>.png`
+경로 규약: 영웅 `public/images/heroes/<code>.png`, 맵 `public/images/maps/<code>.jpg`
 
 ## 영웅 (48개) — public/images/heroes/
 
@@ -59,32 +59,32 @@
 
 | 파일명 | 맵 |
 |---|---|
-| `busan.png` | 부산 |
-| `ilios.png` | 일리오스 |
-| `lijiang.png` | 리장 타워 |
-| `nepal.png` | 네팔 |
-| `oasis.png` | 오아시스 |
-| `antarctica.png` | 남극 반도 |
-| `circuit_royal.png` | 서킷 로얄 |
-| `dorado.png` | 도라도 |
-| `route66.png` | 66번 국도 |
-| `gibraltar.png` | 지브롤터 |
-| `junkertown.png` | 쓰레기촌 |
-| `rialto.png` | 리알토 |
-| `shambali.png` | 샴발리 수도원 |
-| `kings_row.png` | 왕의 길 |
-| `midtown.png` | 미드타운 |
-| `numbani.png` | 눔바니 |
-| `paraiso.png` | 파라이수 |
-| `hollywood.png` | 할리우드 |
-| `eichenwalde.png` | 아이헨발데 |
-| `colosseo.png` | 콜로세오 |
-| `esperanca.png` | 에스페란사 |
-| `new_queen_street.png` | 뉴 퀸 스트리트 |
-| `runasapi.png` | 루나사피 |
-| `new_junk_city.png` | 뉴 정크 시티 |
-| `suravasa.png` | 수라바사 |
-| `hanaoka.png` | 하나오카 |
-| `throne_of_anubis.png` | 아누비스 왕좌 |
+| `busan.jpg` | 부산 |
+| `ilios.jpg` | 일리오스 |
+| `lijiang.jpg` | 리장 타워 |
+| `nepal.jpg` | 네팔 |
+| `oasis.jpg` | 오아시스 |
+| `antarctica.jpg` | 남극 반도 |
+| `circuit_royal.jpg` | 서킷 로얄 |
+| `dorado.jpg` | 도라도 |
+| `route66.jpg` | 66번 국도 |
+| `gibraltar.jpg` | 지브롤터 |
+| `junkertown.jpg` | 쓰레기촌 |
+| `rialto.jpg` | 리알토 |
+| `shambali.jpg` | 샴발리 수도원 |
+| `kings_row.jpg` | 왕의 길 |
+| `midtown.jpg` | 미드타운 |
+| `numbani.jpg` | 눔바니 |
+| `paraiso.jpg` | 파라이수 |
+| `hollywood.jpg` | 할리우드 |
+| `eichenwalde.jpg` | 아이헨발데 |
+| `colosseo.jpg` | 콜로세오 |
+| `esperanca.jpg` | 에스페란사 |
+| `new_queen_street.jpg` | 뉴 퀸 스트리트 |
+| `runasapi.jpg` | 루나사피 |
+| `new_junk_city.jpg` | 뉴 정크 시티 |
+| `suravasa.jpg` | 수라바사 |
+| `hanaoka.jpg` | 하나오카 |
+| `throne_of_anubis.jpg` | 아누비스 왕좌 |
 
 > 확장자는 `.png` 기준(상수의 image 경로). png로 넣으려면 알려주세요 — 규약 바꿔드림.
