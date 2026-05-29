@@ -66,51 +66,49 @@ export function HeroBanPicker({
           const active = target === side;
           const clear = () => (side === "A" ? setBanA("") : setBanB(""));
           return (
-            <button
-              key={side}
-              type="button"
-              onClick={() => setTarget(side)}
-              className={cn(
-                "relative flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all",
-                active
-                  ? "border-primary bg-primary/10"
-                  : "border-border/60 hover:bg-surface-2",
-              )}
-            >
-              {hero ? (
-                <HeroImage code={code} size={56} className="rounded-lg" />
-              ) : (
-                <span className="flex size-14 items-center justify-center rounded-lg bg-surface-3 text-2xl text-ink-subtle">
-                  🚫
+            <div key={side} className="relative">
+              <button
+                type="button"
+                onClick={() => setTarget(side)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all",
+                  active
+                    ? "border-primary bg-primary/10"
+                    : "border-border/60 hover:bg-surface-2",
+                )}
+              >
+                {hero ? (
+                  <HeroImage code={code} size={56} className="rounded-lg" />
+                ) : (
+                  <span className="flex size-14 items-center justify-center rounded-lg bg-surface-3 text-2xl text-ink-subtle">
+                    🚫
+                  </span>
+                )}
+                <span className="flex min-w-0 flex-col">
+                  <span className="flex items-center gap-1.5 text-xs text-ink-subtle">
+                    {side}팀 밴
+                    {active && (
+                      <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
+                        지정 중
+                      </span>
+                    )}
+                  </span>
+                  <span className="truncate text-base font-semibold">
+                    {hero?.nameKo ?? "밴 없음"}
+                  </span>
                 </span>
-              )}
-              <span className="flex min-w-0 flex-col">
-                <span className="flex items-center gap-1.5 text-xs text-ink-subtle">
-                  {side}팀 밴
-                  {active && (
-                    <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
-                      지정 중
-                    </span>
-                  )}
-                </span>
-                <span className="truncate text-base font-semibold">
-                  {hero?.nameKo ?? "밴 없음"}
-                </span>
-              </span>
+              </button>
               {hero && (
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   className="absolute top-1.5 right-1.5"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    clear();
-                  }}
+                  onClick={clear}
                 >
                   ✕
                 </Button>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
