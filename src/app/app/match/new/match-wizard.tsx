@@ -805,12 +805,11 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
     return (
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-medium">맵 선정</h2>
-        <div className="overflow-hidden rounded-lg border border-border/60">
-          <MapImage
-            key={mapSel.mapCode}
-            code={mapSel.mapCode}
-            className="aspect-video w-full"
-          />
+        <div
+          key={mapSel.mapCode}
+          className="overflow-hidden rounded-lg border border-border/60 animate-in fade-in zoom-in-95 duration-500 ease-out"
+        >
+          <MapImage code={mapSel.mapCode} className="aspect-video w-full" />
           <div className="px-4 py-4">
             <p className="text-sm text-ink-subtle">선택된 맵</p>
             <p className="text-xl font-semibold">

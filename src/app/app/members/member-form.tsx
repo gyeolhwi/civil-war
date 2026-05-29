@@ -373,7 +373,7 @@ export function MemberForm({
                   <span className="text-xs text-ink-subtle">
                     {MODE_LABEL_KO[mode]}
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-2">
                     {maps.map((m) => {
                       const active = mapCodes.includes(m.code);
                       return (
@@ -384,7 +384,7 @@ export function MemberForm({
                         >
                           <Badge
                             variant={active ? "default" : "outline"}
-                            className="cursor-pointer"
+                            className="h-8 cursor-pointer px-3 text-sm"
                           >
                             {m.nameKo}
                           </Badge>
