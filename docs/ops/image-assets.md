@@ -1,8 +1,8 @@
 # 이미지 자산 파일명 (직접 넣기)
 
-경로 규약: 영웅 `public/heroes/<code>.png`, 맵 `public/maps/<code>.png`
+경로 규약: 영웅 `public/images/heroes/<code>.png`, 맵 `public/images/maps/<code>.png`
 
-## 영웅 (48개) — public/heroes/
+## 영웅 (48개) — public/images/heroes/
 
 | 파일명 | 영웅 |
 |---|---|
@@ -55,7 +55,7 @@
 | `zenyatta.png` | 젠야타 |
 | `illari.png` | 일리아리 |
 
-## 맵 (27개) — public/maps/
+## 맵 (27개) — public/images/maps/
 
 | 파일명 | 맵 |
 |---|---|
