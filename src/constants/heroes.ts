@@ -48,7 +48,7 @@ function hero(
     role,
     subRoles,
     normalizedSubRole: normalizeSubRole(role, subRoles),
-    image: `/heroes/${code}.jpg`,
+    image: `/heroes/${code}.png`,
     isActive: true,
   };
 }
