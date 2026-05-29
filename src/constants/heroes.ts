@@ -102,7 +102,10 @@ export const HEROES: Hero[] = [
   hero("moira", "모이라", "support", ["main_support"]),
   hero("kiriko", "키리코", "support", ["main_support", "utility_support"]),
   hero("juno", "주노", "support", ["main_support"]),
-  hero("lifeweaver", "라이프위버", "support", ["main_support", "utility_support"]),
+  hero("lifeweaver", "라이프위버", "support", [
+    "main_support",
+    "utility_support",
+  ]),
   hero("lucio", "루시우", "support", ["utility_support"]),
   hero("mercy", "메르시", "support", ["utility_support"]),
   hero("brigitte", "브리기테", "support", ["utility_support"]),
@@ -118,6 +121,16 @@ export const HERO_BY_CODE: Record<string, Hero> = Object.fromEntries(
 );
 
 export const HERO_CODES = HEROES.map((h) => h.code);
+
+/** 역할 표시·정렬 순서 (탱 → 딜 → 힐) */
+export const ROLE_ORDER: Record<Role, number> = { tank: 0, dps: 1, support: 2 };
+
+/** 역할별 영웅 목록 (결과 입력 시 배정 포지션 영웅만 노출용) */
+export const HEROES_BY_ROLE: Record<Role, Hero[]> = {
+  tank: HEROES.filter((h) => h.role === "tank"),
+  dps: HEROES.filter((h) => h.role === "dps"),
+  support: HEROES.filter((h) => h.role === "support"),
+};
 
 /** 이름 일부로 영웅 검색 (결과 입력 자동완성용, docs/workflow.md [11]) */
 export function searchHeroes(query: string): Hero[] {

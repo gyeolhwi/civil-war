@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { HEROES, ROLE_LABEL_KO } from "@/constants/heroes";
+import { HEROES_BY_ROLE, ROLE_LABEL_KO, ROLE_ORDER } from "@/constants/heroes";
 import { MAP_BY_CODE } from "@/constants/maps";
 import { buildDiscordText, type ShareTeam } from "@/domain/discord";
 import {
@@ -64,6 +64,9 @@ interface DraftAssign {
 }
 
 const ROLES: Role[] = ["tank", "dps", "support"];
+
+const selectClass =
+  "h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 const MODES: {
   value: BuildMode;
@@ -137,11 +140,6 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
     () => new Map(participants.map((p) => [p.id, p])),
     [participants],
   );
-  const heroNameToCode = useMemo(
-    () => new Map(HEROES.map((h) => [h.nameKo, h.code])),
-    [],
-  );
-
   const [step, setStep] = useState<Step>("select");
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -347,8 +345,8 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
 
   function saveMapBan() {
     if (!saved || !mapSel) return;
-    const aCode = heroNameToCode.get(banA.trim()) ?? null;
-    const bCode = heroNameToCode.get(banB.trim()) ?? null;
+    const aCode = banA || null;
+    const bCode = banB || null;
     startTransition(async () => {
       const res = await updateMapBan(
         saved.matchId,
@@ -377,8 +375,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
       return;
     }
     const heroes: Record<string, string> = {};
-    for (const [tmId, name] of Object.entries(heroInputs)) {
-      const code = heroNameToCode.get(name.trim());
+    for (const [tmId, code] of Object.entries(heroInputs)) {
       if (code) heroes[tmId] = code;
     }
     startTransition(async () => {
@@ -404,8 +401,8 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
       teamA: shareTeam(candidate.teamA, "A팀"),
       teamB: shareTeam(candidate.teamB, "B팀"),
       mapCode: mapSel?.mapCode ?? null,
-      banA: heroNameToCode.get(banA.trim()) ?? null,
-      banB: heroNameToCode.get(banB.trim()) ?? null,
+      banA: banA || null,
+      banB: banB || null,
     });
     navigator.clipboard
       .writeText(text)
@@ -676,15 +673,19 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
           </span>
         </div>
         <ul className="flex flex-col gap-0.5 text-sm">
-          {list.map((a) => (
-            <li key={a.participant.id} className="flex justify-between gap-2">
-              <span>
-                <span className="text-ink-subtle">{ROLE_LABEL_KO[a.role]}</span>{" "}
-                {a.participant.battleTag}
-                {a.isCaptain && " 🅒"}
-              </span>
-            </li>
-          ))}
+          {[...list]
+            .sort((x, y) => ROLE_ORDER[x.role] - ROLE_ORDER[y.role])
+            .map((a) => (
+              <li key={a.participant.id} className="flex justify-between gap-2">
+                <span>
+                  <span className="text-ink-subtle">
+                    {ROLE_LABEL_KO[a.role]}
+                  </span>{" "}
+                  {a.participant.battleTag}
+                  {a.isCaptain && " 🅒"}
+                </span>
+              </li>
+            ))}
           {Object.entries(openSlots(list)).flatMap(([r, n]) =>
             Array.from({ length: n }, (_, i) => (
               <li key={`${r}-${i}`} className="text-ink-tertiary">
@@ -827,27 +828,46 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
     return (
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-medium">영웅 밴 (선택)</h2>
-        <HeroDatalist />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="banA">A팀 밴</Label>
-            <Input
+            <select
               id="banA"
-              list="hero-list"
-              placeholder="영웅 이름"
+              className={selectClass}
               value={banA}
               onChange={(e) => setBanA(e.target.value)}
-            />
+            >
+              <option value="">밴 없음</option>
+              {ROLES.map((role) => (
+                <optgroup key={role} label={ROLE_LABEL_KO[role]}>
+                  {HEROES_BY_ROLE[role].map((h) => (
+                    <option key={h.code} value={h.code}>
+                      {h.nameKo}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="banB">B팀 밴</Label>
-            <Input
+            <select
               id="banB"
-              list="hero-list"
-              placeholder="영웅 이름"
+              className={selectClass}
               value={banB}
               onChange={(e) => setBanB(e.target.value)}
-            />
+            >
+              <option value="">밴 없음</option>
+              {ROLES.map((role) => (
+                <optgroup key={role} label={ROLE_LABEL_KO[role]}>
+                  {HEROES_BY_ROLE[role].map((h) => (
+                    <option key={h.code} value={h.code}>
+                      {h.nameKo}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </div>
         </div>
         <div className="flex justify-end gap-2">
@@ -866,7 +886,6 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
     return (
       <div className="flex flex-col gap-5">
         <h2 className="text-lg font-medium">결과 입력</h2>
-        <HeroDatalist />
 
         <div className="flex flex-col gap-2">
           <Label>승팀</Label>
@@ -913,30 +932,47 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
             .map((team) => (
               <div key={team.teamId} className="flex flex-col gap-2">
                 <p className="text-sm font-medium">{team.side}팀</p>
-                {team.members.map((m) => {
-                  const p = byId.get(m.memberId);
-                  return (
-                    <div
-                      key={m.teamMemberId}
-                      className="flex items-center gap-2"
-                    >
-                      <span className="w-28 shrink-0 truncate text-sm">
-                        {p?.battleTag ?? m.memberId}
-                      </span>
-                      <Input
-                        list="hero-list"
-                        placeholder={`${ROLE_LABEL_KO[m.assignedRole]} 영웅 (선택)`}
-                        value={heroInputs[m.teamMemberId] ?? ""}
-                        onChange={(e) =>
-                          setHeroInputs((prev) => ({
-                            ...prev,
-                            [m.teamMemberId]: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                  );
-                })}
+                {team.members
+                  .slice()
+                  .sort(
+                    (a, b) =>
+                      ROLE_ORDER[a.assignedRole] - ROLE_ORDER[b.assignedRole],
+                  )
+                  .map((m) => {
+                    const p = byId.get(m.memberId);
+                    return (
+                      <div
+                        key={m.teamMemberId}
+                        className="flex items-center gap-2"
+                      >
+                        <span className="w-28 shrink-0 truncate text-sm">
+                          <span className="text-ink-subtle">
+                            {ROLE_LABEL_KO[m.assignedRole]}
+                          </span>{" "}
+                          {p?.battleTag ?? m.memberId}
+                        </span>
+                        <select
+                          className={cn(selectClass, "flex-1")}
+                          value={heroInputs[m.teamMemberId] ?? ""}
+                          onChange={(e) =>
+                            setHeroInputs((prev) => ({
+                              ...prev,
+                              [m.teamMemberId]: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">
+                            {ROLE_LABEL_KO[m.assignedRole]} 영웅 (선택)
+                          </option>
+                          {HEROES_BY_ROLE[m.assignedRole].map((h) => (
+                            <option key={h.code} value={h.code}>
+                              {h.nameKo}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
               </div>
             ))}
         </div>
@@ -1090,15 +1126,5 @@ function ActionCard({
         </CardHeader>
       </Card>
     </button>
-  );
-}
-
-function HeroDatalist() {
-  return (
-    <datalist id="hero-list">
-      {HEROES.map((h) => (
-        <option key={h.code} value={h.nameKo} />
-      ))}
-    </datalist>
   );
 }

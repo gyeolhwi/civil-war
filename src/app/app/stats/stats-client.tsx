@@ -14,12 +14,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HERO_BY_CODE, HEROES, ROLE_LABEL_KO } from "@/constants/heroes";
+import {
+  HERO_BY_CODE,
+  HEROES_BY_ROLE,
+  ROLE_LABEL_KO,
+} from "@/constants/heroes";
 import { MAP_BY_CODE } from "@/constants/maps";
 import type { MatchTeamView, MatchView } from "@/lib/matches";
 import { cn } from "@/lib/utils";
 import { saveResult } from "../match/actions";
 import { deleteMatch } from "./actions";
+
+const selectClass =
+  "h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 const BUILD_MODE_LABEL: Record<string, string> = {
   basic: "자동 밸런스",
@@ -231,6 +238,14 @@ function PersonalTab({ matches }: { matches: MatchView[] }) {
   }, [matches]);
 
   const [memberId, setMemberId] = useState(members[0]?.id ?? "");
+  const [memberSearch, setMemberSearch] = useState("");
+
+  const filteredMembers = useMemo(() => {
+    const q = memberSearch.trim().toLowerCase();
+    return q
+      ? members.filter((m) => m.battleTag.toLowerCase().includes(q))
+      : members;
+  }, [members, memberSearch]);
 
   const stats = useMemo(() => {
     let games = 0;
@@ -288,20 +303,35 @@ function PersonalTab({ matches }: { matches: MatchView[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="member">멤버</Label>
-        <select
-          id="member"
-          value={memberId}
-          onChange={(e) => setMemberId(e.target.value)}
-          className="h-9 max-w-xs rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-        >
-          {members.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.battleTag}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="memberSearch">멤버</Label>
+        <Input
+          id="memberSearch"
+          placeholder="배틀태그로 검색"
+          value={memberSearch}
+          onChange={(e) => setMemberSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <div className="flex flex-wrap gap-1.5">
+          {filteredMembers.length === 0 ? (
+            <span className="text-xs text-ink-subtle">검색 결과 없음</span>
+          ) : (
+            filteredMembers.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setMemberId(m.id)}
+              >
+                <Badge
+                  variant={memberId === m.id ? "default" : "outline"}
+                  className="h-8 cursor-pointer px-3 text-sm"
+                >
+                  {m.battleTag}
+                </Badge>
+              </button>
+            ))
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -390,10 +420,6 @@ function EditMatchDialog({ match }: { match: MatchView }) {
   const [pending, startTransition] = useTransition();
 
   const allMembers = match.teams.flatMap((t) => t.members);
-  const heroNameToCode = useMemo(
-    () => new Map(HEROES.map((h) => [h.nameKo, h.code])),
-    [],
-  );
 
   const [winner, setWinner] = useState<"A" | "B" | "draw">(
     match.winnerSide ?? "draw",
@@ -401,12 +427,10 @@ function EditMatchDialog({ match }: { match: MatchView }) {
   const [scoreA, setScoreA] = useState(match.scoreA?.toString() ?? "");
   const [scoreB, setScoreB] = useState(match.scoreB?.toString() ?? "");
   const [memo, setMemo] = useState(match.memo ?? "");
+  // teamMemberId → 영웅 코드 ("" = 미입력)
   const [heroInputs, setHeroInputs] = useState<Record<string, string>>(() =>
     Object.fromEntries(
-      allMembers.map((m) => [
-        m.teamMemberId,
-        m.heroUsed ? (HERO_BY_CODE[m.heroUsed]?.nameKo ?? "") : "",
-      ]),
+      allMembers.map((m) => [m.teamMemberId, m.heroUsed ?? ""]),
     ),
   );
 
@@ -422,8 +446,7 @@ function EditMatchDialog({ match }: { match: MatchView }) {
       return;
     }
     const heroes: Record<string, string> = {};
-    for (const [tmId, name] of Object.entries(heroInputs)) {
-      const code = heroNameToCode.get(name.trim());
+    for (const [tmId, code] of Object.entries(heroInputs)) {
       if (code) heroes[tmId] = code;
     }
     startTransition(async () => {
@@ -455,11 +478,6 @@ function EditMatchDialog({ match }: { match: MatchView }) {
             승팀·스코어·사용 영웅·메모를 정정합니다. 팀 구성은 바뀌지 않습니다.
           </DialogDescription>
         </DialogHeader>
-        <datalist id="hero-list-edit">
-          {HEROES.map((h) => (
-            <option key={h.code} value={h.nameKo} />
-          ))}
-        </datalist>
 
         <div className="flex flex-col gap-2">
           <Label>승팀</Label>
@@ -506,11 +524,13 @@ function EditMatchDialog({ match }: { match: MatchView }) {
               {t.members.map((m) => (
                 <div key={m.teamMemberId} className="flex items-center gap-2">
                   <span className="w-24 shrink-0 truncate text-sm">
+                    <span className="text-ink-subtle">
+                      {ROLE_LABEL_KO[m.assignedRole]}
+                    </span>{" "}
                     {m.battleTag}
                   </span>
-                  <Input
-                    list="hero-list-edit"
-                    placeholder="영웅 (선택)"
+                  <select
+                    className={cn(selectClass, "flex-1")}
                     value={heroInputs[m.teamMemberId] ?? ""}
                     onChange={(e) =>
                       setHeroInputs((prev) => ({
@@ -518,7 +538,16 @@ function EditMatchDialog({ match }: { match: MatchView }) {
                         [m.teamMemberId]: e.target.value,
                       }))
                     }
-                  />
+                  >
+                    <option value="">
+                      {ROLE_LABEL_KO[m.assignedRole]} 영웅 (선택)
+                    </option>
+                    {HEROES_BY_ROLE[m.assignedRole].map((h) => (
+                      <option key={h.code} value={h.code}>
+                        {h.nameKo}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               ))}
             </div>

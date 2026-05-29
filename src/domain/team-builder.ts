@@ -1,4 +1,4 @@
-import { HERO_BY_CODE } from "@/constants/heroes";
+import { HERO_BY_CODE, ROLE_ORDER } from "@/constants/heroes";
 import { MAPS } from "@/constants/maps";
 import {
   comboPenalty,
@@ -119,7 +119,10 @@ function assemble(members: AssignedMember[]): BuiltTeam {
 export function assembleTeam(
   members: { participant: Participant; role: Role }[],
 ): BuiltTeam {
-  return assemble(members.map((m) => toSlot(m.participant, m.role)));
+  const ordered = [...members].sort(
+    (a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role],
+  );
+  return assemble(ordered.map((m) => toSlot(m.participant, m.role)));
 }
 
 /** 인덱스 0..n-1에서 2개를 고르는 모든 쌍 */

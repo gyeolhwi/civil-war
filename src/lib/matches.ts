@@ -1,3 +1,4 @@
+import { ROLE_ORDER } from "@/constants/heroes";
 import type { BuildMode, Role } from "@/domain/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -98,7 +99,9 @@ export async function loadMatches(channelId: string): Promise<MatchView[]> {
       side: t.side as "A" | "B",
       finalScore: t.final_score,
       isWinner: t.is_winner,
-      members: membersByTeam.get(t.id) ?? [],
+      members: (membersByTeam.get(t.id) ?? []).sort(
+        (a, b) => ROLE_ORDER[a.assignedRole] - ROLE_ORDER[b.assignedRole],
+      ),
     });
     teamsByMatch.set(t.match_id, list);
   }
