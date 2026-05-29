@@ -88,14 +88,14 @@ export function MapImage({
   }
 
   return (
-    <div className={cn("relative overflow-hidden", className)}>
+    <div className={cn("relative overflow-hidden bg-surface-1", className)}>
       <Image
         src={map.image}
         alt={map.nameKo}
         fill
         sizes="(max-width: 768px) 100vw, 640px"
         onError={() => setFailed(true)}
-        className="object-cover animate-in fade-in duration-300"
+        className="object-contain animate-in fade-in duration-300"
       />
     </div>
   );

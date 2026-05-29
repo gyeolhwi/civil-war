@@ -809,7 +809,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
           <MapImage
             key={mapSel.mapCode}
             code={mapSel.mapCode}
-            className="h-44 w-full"
+            className="aspect-video w-full"
           />
           <div className="px-4 py-4">
             <p className="text-sm text-ink-subtle">선택된 맵</p>
