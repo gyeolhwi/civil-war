@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { RoleIcon } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HEROES_BY_ROLE, ROLE_LABEL_KO, ROLE_ORDER } from "@/constants/heroes";
@@ -473,7 +474,8 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium">{p.battleTag}</span>
                     {p.primaryRole && (
-                      <Badge variant="secondary">
+                      <Badge variant="secondary" className="gap-1 pl-1.5">
+                        <RoleIcon role={p.primaryRole} size={13} />
                         {ROLE_LABEL_KO[p.primaryRole]}
                       </Badge>
                     )}
@@ -616,7 +618,9 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
                 size="sm"
                 variant={value === r ? "default" : "secondary"}
                 onClick={() => onPick(r)}
+                className="gap-1.5"
               >
+                <RoleIcon role={r} size={14} />
                 {ROLE_LABEL_KO[r]} {cap.ratings[r] ?? "비선호"}
               </Button>
             ))}
@@ -687,10 +691,8 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
             .sort((x, y) => ROLE_ORDER[x.role] - ROLE_ORDER[y.role])
             .map((a) => (
               <li key={a.participant.id} className="flex justify-between gap-2">
-                <span>
-                  <span className="text-ink-subtle">
-                    {ROLE_LABEL_KO[a.role]}
-                  </span>{" "}
+                <span className="flex items-center gap-1.5">
+                  <RoleIcon role={a.role} size={14} />
                   {a.participant.battleTag}
                   {a.isCaptain && " 🅒"}
                 </span>
@@ -698,7 +700,11 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
             ))}
           {Object.entries(openSlots(list)).flatMap(([r, n]) =>
             Array.from({ length: n }, (_, i) => (
-              <li key={`${r}-${i}`} className="text-ink-tertiary">
+              <li
+                key={`${r}-${i}`}
+                className="flex items-center gap-1.5 text-ink-tertiary"
+              >
+                <RoleIcon role={r as Role} size={14} className="opacity-50" />
                 {ROLE_LABEL_KO[r as Role]} (빈 슬롯)
               </li>
             )),
@@ -761,7 +767,9 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
                       size="sm"
                       variant={offRole ? "ghost" : "secondary"}
                       onClick={() => draftPick(p, r)}
+                      className="gap-1.5"
                     >
+                      <RoleIcon role={r} size={14} />
                       {ROLE_LABEL_KO[r]}로 영입{offRole && " (비선호)"}
                     </Button>
                   );
@@ -913,11 +921,11 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
                         key={m.teamMemberId}
                         className="flex items-center gap-2"
                       >
-                        <span className="w-28 shrink-0 truncate text-sm">
-                          <span className="text-ink-subtle">
-                            {ROLE_LABEL_KO[m.assignedRole]}
-                          </span>{" "}
-                          {p?.battleTag ?? m.memberId}
+                        <span className="flex w-28 shrink-0 items-center gap-1.5 text-sm">
+                          <RoleIcon role={m.assignedRole} size={14} />
+                          <span className="truncate">
+                            {p?.battleTag ?? m.memberId}
+                          </span>
                         </span>
                         <select
                           className={cn(selectClass, "flex-1")}
@@ -1051,8 +1059,8 @@ function TeamCard({
             key={m.participant.id}
             className="flex items-center justify-between gap-2 text-sm"
           >
-            <span>
-              <span className="text-ink-subtle">{ROLE_LABEL_KO[m.role]}</span>{" "}
+            <span className="flex items-center gap-1.5">
+              <RoleIcon role={m.role} size={14} />
               {byId.get(m.participant.id)?.battleTag ?? m.participant.battleTag}
             </span>
             <span className="tabular-nums text-ink-subtle">

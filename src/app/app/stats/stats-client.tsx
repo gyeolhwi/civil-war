@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { HeroImage } from "@/components/ui/game-image";
+import { HeroImage, RoleIcon } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -208,10 +208,8 @@ function TeamColumn({
       <ul className="flex flex-col gap-0.5 text-sm">
         {team.members.map((m) => (
           <li key={m.teamMemberId} className="flex justify-between gap-2">
-            <span>
-              <span className="text-ink-subtle">
-                {ROLE_LABEL_KO[m.assignedRole]}
-              </span>{" "}
+            <span className="flex items-center gap-1.5">
+              <RoleIcon role={m.assignedRole} size={14} />
               {m.battleTag}
             </span>
             {m.heroUsed && (
@@ -527,11 +525,9 @@ function EditMatchDialog({ match }: { match: MatchView }) {
               <p className="text-sm font-medium">{t.side}팀</p>
               {t.members.map((m) => (
                 <div key={m.teamMemberId} className="flex items-center gap-2">
-                  <span className="w-24 shrink-0 truncate text-sm">
-                    <span className="text-ink-subtle">
-                      {ROLE_LABEL_KO[m.assignedRole]}
-                    </span>{" "}
-                    {m.battleTag}
+                  <span className="flex w-24 shrink-0 items-center gap-1.5 text-sm">
+                    <RoleIcon role={m.assignedRole} size={14} />
+                    <span className="truncate">{m.battleTag}</span>
                   </span>
                   <select
                     className={cn(selectClass, "flex-1")}
