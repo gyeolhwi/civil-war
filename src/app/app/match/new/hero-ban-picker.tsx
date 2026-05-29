@@ -36,9 +36,11 @@ export function HeroBanPicker({
   const q = query.trim();
 
   function pick(code: string) {
+    const otherBan = target === "A" ? banB : banA;
+    if (code === otherBan) return; // 상대 팀이 이미 밴한 영웅은 불가 (중복 밴 방지)
     const set = target === "A" ? setBanA : setBanB;
     if (current === code) {
-      set("");
+      set(""); // 같은 영웅 재클릭 → 해제
     } else {
       set(code);
       setTarget(target === "A" ? "B" : "A");
@@ -127,18 +129,22 @@ export function HeroBanPicker({
                   const banSide =
                     h.code === banA ? "A" : h.code === banB ? "B" : null;
                   const onCurrent = h.code === current;
+                  const takenByOther = banSide !== null && banSide !== target;
                   return (
                     <button
                       key={h.code}
                       type="button"
                       onClick={() => pick(h.code)}
-                      title={h.nameKo}
+                      disabled={takenByOther}
+                      title={
+                        takenByOther ? `${banSide}팀이 이미 밴함` : h.nameKo
+                      }
                       className={cn(
                         "group flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all",
                         onCurrent
                           ? "border-primary bg-primary/10"
-                          : banSide
-                            ? "border-destructive/50 bg-destructive/10"
+                          : takenByOther
+                            ? "cursor-not-allowed border-destructive/40 bg-destructive/5"
                             : "border-transparent hover:border-border hover:bg-surface-2",
                       )}
                     >
@@ -147,8 +153,9 @@ export function HeroBanPicker({
                           code={h.code}
                           size={60}
                           className={cn(
-                            "rounded-lg transition-transform group-hover:scale-105",
-                            banSide && !onCurrent && "opacity-50",
+                            "rounded-lg transition-transform",
+                            !takenByOther && "group-hover:scale-105",
+                            takenByOther && "opacity-40 grayscale",
                           )}
                         />
                         {banSide && (
