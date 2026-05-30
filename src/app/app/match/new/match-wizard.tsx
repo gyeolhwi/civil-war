@@ -823,17 +823,61 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
           {pool.map((p) => (
             <li
               key={p.id}
-              className="flex flex-col gap-2 rounded-lg border border-border/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-surface-1 p-3 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">{p.battleTag}</span>
-                {ROLES.filter((r) => p.ratings[r] != null).map((r) => (
-                  <span key={r} className="text-xs text-ink-subtle">
-                    {ROLE_LABEL_KO[r]} {p.ratings[r]}
+              <div className="flex min-w-0 flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="font-semibold">{p.battleTag}</span>
+                  {p.primaryRole && (
+                    <Badge variant="secondary" className="gap-1 pl-1.5">
+                      <RoleIcon role={p.primaryRole} size={13} />주{" "}
+                      {ROLE_LABEL_KO[p.primaryRole]}
+                    </Badge>
+                  )}
+                  {p.secondaryRole && (
+                    <Badge variant="outline" className="gap-1 pl-1.5">
+                      <RoleIcon role={p.secondaryRole} size={13} />부{" "}
+                      {ROLE_LABEL_KO[p.secondaryRole]}
+                    </Badge>
+                  )}
+                  <span className="flex flex-wrap items-center gap-1">
+                    {ROLES.filter((r) => p.ratings[r] != null).map((r) => (
+                      <span
+                        key={r}
+                        className={cn(
+                          "rounded px-1.5 py-0.5 text-xs tabular-nums",
+                          r === p.primaryRole
+                            ? "bg-primary/15 text-ink"
+                            : "bg-surface-2 text-ink-subtle",
+                        )}
+                      >
+                        {ROLE_LABEL_KO[r]} {p.ratings[r]}
+                      </span>
+                    ))}
                   </span>
-                ))}
+                </div>
+                {p.heroCodes.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1">
+                    {p.heroCodes.map((code) => (
+                      <span
+                        key={code}
+                        title={HERO_BY_CODE[code]?.nameKo ?? code}
+                      >
+                        <HeroImage
+                          code={code}
+                          size={30}
+                          className="rounded-md ring-1 ring-border/60"
+                        />
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-ink-tertiary">
+                    선호 영웅 없음
+                  </span>
+                )}
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 sm:shrink-0 sm:flex-col sm:items-stretch">
                 {activeOpenRoles.map((r) => {
                   const offRole = p.ratings[r] == null;
                   return (
