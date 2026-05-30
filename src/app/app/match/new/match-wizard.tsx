@@ -56,7 +56,7 @@ import {
   saveResult,
   updateMapBan,
 } from "../actions";
-import { HeroBanPicker } from "./hero-ban-picker";
+import { type BanTeam, HeroBanPicker } from "./hero-ban-picker";
 import { MapRoulette } from "./map-roulette";
 
 type Step =
@@ -155,6 +155,18 @@ function shareTeam(t: BuiltTeam, label: string): ShareTeam {
     finalScore: t.finalScore,
     members: t.members.map((m) => ({
       battleTag: m.participant.battleTag,
+      role: m.role,
+    })),
+  };
+}
+
+/** 밴 카드에 함께 보여줄 팀 로스터로 변환 */
+function toBanTeam(t: BuiltTeam, byId: Map<string, Participant>): BanTeam {
+  return {
+    members: t.members.map((m) => ({
+      id: m.participant.id,
+      battleTag:
+        byId.get(m.participant.id)?.battleTag ?? m.participant.battleTag,
       role: m.role,
     })),
   };
@@ -965,6 +977,8 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
           banB={banB}
           setBanA={setBanA}
           setBanB={setBanB}
+          teamA={candidate ? toBanTeam(candidate.teamA, byId) : null}
+          teamB={candidate ? toBanTeam(candidate.teamB, byId) : null}
         />
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={copyShare}>

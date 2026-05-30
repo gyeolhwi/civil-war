@@ -14,6 +14,11 @@ import { cn } from "@/lib/utils";
 
 const ROLES: Role[] = ["tank", "dps", "support"];
 
+/** 밴 카드에 함께 표시할 팀 로스터 */
+export type BanTeam = {
+  members: { id: string; battleTag: string; role: Role }[];
+} | null;
+
 /**
  * 영웅 밴 카드 피커. 상단 A/B 밴 슬롯(활성 팀 토글) + 영웅 카드 그리드.
  * 활성 팀(슬롯 클릭으로 전환) 기준으로 미밴 영웅 클릭 → 밴, 밴된 영웅 클릭 → 해제(토글).
@@ -24,11 +29,15 @@ export function HeroBanPicker({
   banB,
   setBanA,
   setBanB,
+  teamA = null,
+  teamB = null,
 }: {
   banA: string;
   banB: string;
   setBanA: (c: string) => void;
   setBanB: (c: string) => void;
+  teamA?: BanTeam;
+  teamB?: BanTeam;
 }) {
   const [target, setTarget] = useState<"A" | "B">("A");
   const [query, setQuery] = useState("");
@@ -58,35 +67,53 @@ export function HeroBanPicker({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* A/B 밴 슬롯 (큰 초상) */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* A/B 팀 카드 = 밴 슬롯 + 로스터 (헤더 클릭 = 밴 대상 지정) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {(["A", "B"] as const).map((side) => {
           const code = side === "A" ? banA : banB;
           const hero = code ? HERO_BY_CODE[code] : null;
           const active = target === side;
-          const clear = () => (side === "A" ? setBanA("") : setBanB(""));
+          const team = side === "A" ? teamA : teamB;
+          const isA = side === "A";
+          const clear = () => (isA ? setBanA("") : setBanB(""));
           return (
-            <div key={side} className="relative">
+            <div
+              key={side}
+              className={cn(
+                "relative flex flex-col overflow-hidden rounded-xl border-2 bg-surface-1 transition-all",
+                active
+                  ? "border-primary"
+                  : isA
+                    ? "border-team-a/40"
+                    : "border-team-b/40",
+              )}
+            >
               <button
                 type="button"
                 onClick={() => setTarget(side)}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all",
-                  active
-                    ? "border-primary bg-primary/10"
-                    : "border-border/60 hover:bg-surface-2",
+                  "flex w-full items-center gap-3 p-3 text-left transition-colors",
+                  active ? "bg-primary/10" : "hover:bg-surface-2",
                 )}
               >
                 {hero ? (
-                  <HeroImage code={code} size={56} className="rounded-lg" />
+                  <HeroImage code={code} size={52} className="rounded-lg" />
                 ) : (
-                  <span className="flex size-14 items-center justify-center rounded-lg bg-surface-3 text-2xl text-ink-subtle">
+                  <span className="flex size-13 items-center justify-center rounded-lg bg-surface-3 text-2xl text-ink-subtle">
                     🚫
                   </span>
                 )}
                 <span className="flex min-w-0 flex-col">
-                  <span className="flex items-center gap-1.5 text-xs text-ink-subtle">
-                    {side}팀 밴
+                  <span className="flex items-center gap-1.5 text-xs">
+                    <span
+                      className={cn(
+                        "font-semibold",
+                        isA ? "text-team-a" : "text-team-b",
+                      )}
+                    >
+                      {side}팀
+                    </span>
+                    <span className="text-ink-subtle">밴</span>
                     {active && (
                       <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
                         지정 중
@@ -108,6 +135,33 @@ export function HeroBanPicker({
                   ✕
                 </Button>
               )}
+              {team && team.members.length > 0 && (
+                <div className="flex flex-col gap-2 border-t border-border/40 px-3 py-3">
+                  {ROLES.map((role) => {
+                    const inRole = team.members.filter((m) => m.role === role);
+                    if (inRole.length === 0) return null;
+                    return (
+                      <div key={role} className="flex items-center gap-2.5">
+                        <RoleIcon
+                          role={role}
+                          size={18}
+                          className="shrink-0 opacity-80"
+                        />
+                        <div className="flex flex-wrap gap-1.5">
+                          {inRole.map((m) => (
+                            <span
+                              key={m.id}
+                              className="rounded-md bg-surface-2 px-2.5 py-1 text-sm font-medium"
+                            >
+                              {m.battleTag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
@@ -116,7 +170,7 @@ export function HeroBanPicker({
       <p className="text-xs text-ink-subtle">
         영웅을 누르면{" "}
         <span className="font-medium text-foreground">{target}팀</span>이 밴 (빈
-        팀으로 자동 전환) · 밴된 영웅 다시 누르면 해제 · 팀 직접 지정은 슬롯
+        팀으로 자동 전환) · 밴된 영웅 다시 누르면 해제 · 팀 직접 지정은 카드
         클릭
       </p>
 
