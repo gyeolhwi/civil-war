@@ -57,6 +57,13 @@ export const MAPS: GameMap[] = [
     image: "/images/maps/antarctica.jpg",
     isActive: true,
   },
+  {
+    code: "samoa",
+    nameKo: "사모아",
+    mode: "control",
+    image: "/images/maps/samoa.jpg",
+    isActive: true,
+  },
   // 호위(escort)
   {
     code: "circuit_royal",
@@ -107,6 +114,13 @@ export const MAPS: GameMap[] = [
     image: "/images/maps/shambali.jpg",
     isActive: true,
   },
+  {
+    code: "havana",
+    nameKo: "하바나",
+    mode: "escort",
+    image: "/images/maps/havana.jpg",
+    isActive: true,
+  },
   // 혼합(hybrid)
   {
     code: "kings_row",
@@ -148,6 +162,13 @@ export const MAPS: GameMap[] = [
     nameKo: "아이헨발데",
     mode: "hybrid",
     image: "/images/maps/eichenwalde.jpg",
+    isActive: true,
+  },
+  {
+    code: "blizzard_world",
+    nameKo: "블리자드 월드",
+    mode: "hybrid",
+    image: "/images/maps/blizzard_world.jpg",
     isActive: true,
   },
   // 밀기(push)
@@ -192,6 +213,13 @@ export const MAPS: GameMap[] = [
     nameKo: "수라바사",
     mode: "flashpoint",
     image: "/images/maps/suravasa.jpg",
+    isActive: true,
+  },
+  {
+    code: "aatlis",
+    nameKo: "아틀리스",
+    mode: "flashpoint",
+    image: "/images/maps/aatlis.jpg",
     isActive: true,
   },
   // 격돌(clash)
