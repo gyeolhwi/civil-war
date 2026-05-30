@@ -227,9 +227,12 @@ export function TierImage({
 export function MapImage({
   code,
   className,
+  cover = false,
 }: {
   code: string;
   className?: string;
+  /** true면 영역을 꽉 채움(object-cover, 배너용). 기본은 object-contain. */
+  cover?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const map = MAP_BY_CODE[code];
@@ -254,7 +257,10 @@ export function MapImage({
         src={map.image}
         alt={map.nameKo}
         onError={() => setFailed(true)}
-        className="size-full object-contain animate-in fade-in duration-300"
+        className={cn(
+          "size-full animate-in fade-in duration-300",
+          cover ? "object-cover" : "object-contain",
+        )}
       />
     </div>
   );

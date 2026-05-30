@@ -12,10 +12,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { preloadGameImages, RoleIcon } from "@/components/ui/game-image";
+import {
+  HeroImage,
+  MapImage,
+  ModeIcon,
+  preloadGameImages,
+  RoleIcon,
+} from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { HEROES_BY_ROLE, ROLE_LABEL_KO, ROLE_ORDER } from "@/constants/heroes";
+import { SortSelect } from "@/components/ui/sort-select";
+import {
+  HERO_BY_CODE,
+  HEROES_BY_ROLE,
+  ROLE_LABEL_KO,
+  ROLE_ORDER,
+} from "@/constants/heroes";
+import { MAP_BY_CODE, MODE_LABEL_KO } from "@/constants/maps";
 import { buildDiscordText, type ShareTeam } from "@/domain/discord";
 import {
   currentTurn,
@@ -23,6 +36,7 @@ import {
   openRoles,
   openSlots,
   pickTopCaptains,
+  playerStrength,
 } from "@/domain/draft";
 import {
   assembleTeam,
@@ -54,6 +68,7 @@ type Step =
   | "confirm"
   | "map"
   | "ban"
+  | "review"
   | "result"
   | "next";
 
@@ -67,6 +82,16 @@ interface DraftAssign {
 }
 
 const ROLES: Role[] = ["tank", "dps", "support"];
+
+/** 주 역할 정렬 순위 (탱→딜→힐, 미지정은 맨 뒤) */
+const partRoleRank = (p: Participant): number =>
+  p.primaryRole ? ROLE_ORDER[p.primaryRole] : 99;
+
+const SELECT_SORTS: { key: "role" | "score" | "joined"; label: string }[] = [
+  { key: "role", label: "역할순" },
+  { key: "score", label: "점수순" },
+  { key: "joined", label: "가입순" },
+];
 
 const selectClass =
   "h-9 rounded-lg border border-input bg-surface-2 px-2.5 text-sm text-ink outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 [color-scheme:dark]";
@@ -146,6 +171,9 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
   const [step, setStep] = useState<Step>("select");
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [selectSort, setSelectSort] = useState<"role" | "score" | "joined">(
+    "role",
+  );
   const [mode, setMode] = useState<BuildMode>("basic");
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [saved, setSaved] = useState<SavedMatch | null>(null);
@@ -433,19 +461,34 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
             p.discordName?.includes(search.trim()),
         )
       : participants;
+    const sortedSelect =
+      selectSort === "joined"
+        ? filtered
+        : [...filtered].sort((a, b) =>
+            selectSort === "score"
+              ? playerStrength(b) - playerStrength(a)
+              : partRoleRank(a) - partRoleRank(b) ||
+                playerStrength(b) - playerStrength(a),
+          );
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Input
             placeholder="멤버 검색"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-xs"
+            className="sm:max-w-xs"
           />
           <div className="flex items-center gap-3">
+            <SortSelect
+              value={selectSort}
+              options={SELECT_SORTS}
+              onChange={setSelectSort}
+              className="w-36"
+            />
             <span
               className={cn(
-                "text-sm tabular-nums",
+                "shrink-0 text-sm tabular-nums",
                 selected.length === 10 ? "text-success" : "text-ink-subtle",
               )}
             >
@@ -461,7 +504,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
         </div>
 
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p) => {
+          {sortedSelect.map((p) => {
             const active = selected.includes(p.id);
             const ratedRoles = ROLES.filter((r) => p.ratings[r] != null);
             return (
@@ -470,29 +513,49 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
                   type="button"
                   onClick={() => toggle(p.id)}
                   className={cn(
-                    "w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
+                    "flex w-full flex-col gap-2 rounded-lg border px-3.5 py-3 text-left transition-colors",
                     active
                       ? "border-primary bg-primary/10"
                       : "border-border/60 hover:bg-surface-2",
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium">{p.battleTag}</span>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "flex size-4 shrink-0 items-center justify-center rounded-full border text-[10px] leading-none",
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border",
+                        )}
+                      >
+                        {active ? "✓" : ""}
+                      </span>
+                      <span className="truncate font-medium">
+                        {p.battleTag}
+                      </span>
+                    </span>
                     {p.primaryRole && (
-                      <Badge variant="secondary" className="gap-1 pl-1.5">
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 gap-1 pl-1.5"
+                      >
                         <RoleIcon role={p.primaryRole} size={13} />
                         {ROLE_LABEL_KO[p.primaryRole]}
                       </Badge>
                     )}
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1">
                     {ratedRoles.length === 0 ? (
                       <span className="text-xs text-ink-subtle">
                         티어 미입력
                       </span>
                     ) : (
                       ratedRoles.map((r) => (
-                        <span key={r} className="text-xs text-ink-subtle">
+                        <span
+                          key={r}
+                          className="rounded bg-surface-2 px-1.5 py-0.5 text-xs tabular-nums text-ink-subtle"
+                        >
                           {ROLE_LABEL_KO[r]} {p.ratings[r]}
                         </span>
                       ))
@@ -663,7 +726,14 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
     const draftedIds = new Set(
       [...draftA, ...draftB].map((a) => a.participant.id),
     );
-    const pool = selectedParticipants.filter((p) => !draftedIds.has(p.id));
+    // 픽 후보: 대표 점수(역할 중 최고) 내림차순 → 동점은 탱·딜·힐 순
+    const pool = selectedParticipants
+      .filter((p) => !draftedIds.has(p.id))
+      .sort(
+        (a, b) =>
+          playerStrength(b) - playerStrength(a) ||
+          partRoleRank(a) - partRoleRank(b),
+      );
     const activeTeam = turn === "A" ? draftA : draftB;
     const activeOpenRoles = openRoles(activeTeam);
     const scoreOf = (list: DraftAssign[]) =>
@@ -856,8 +926,80 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
           <Button variant="secondary" onClick={copyShare}>
             디스코드 복사
           </Button>
+          <Button onClick={() => setStep("review")}>다음 (확인)</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "review" && candidate) {
+    const map = mapSel ? MAP_BY_CODE[mapSel.mapCode] : null;
+    const diff = Math.abs(
+      candidate.teamA.finalScore - candidate.teamB.finalScore,
+    );
+    return (
+      <div className="flex flex-col gap-4">
+        <BackBar onBack={() => setStep("ban")} label="영웅 밴" />
+        <h2 className="text-lg font-medium">최종 대진표 확인</h2>
+
+        {map ? (
+          <div className="relative overflow-hidden rounded-xl border border-border/60">
+            <MapImage code={map.code} cover className="aspect-video w-full" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-5">
+              <div className="flex flex-col gap-1">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-white/85">
+                  <ModeIcon mode={map.mode} size={16} />
+                  {MODE_LABEL_KO[map.mode]}
+                </span>
+                <span className="text-2xl font-bold text-white drop-shadow-md sm:text-3xl">
+                  {map.nameKo}
+                </span>
+              </div>
+              <span className="rounded-full bg-black/45 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
+                선정 맵
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border/60 px-4 py-6 text-center text-sm text-ink-subtle">
+            맵 미선정
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-[1fr_auto_1fr]">
+          <MatchupTeam
+            team={candidate.teamA}
+            label="A팀"
+            tone="a"
+            banCode={banA}
+            byId={byId}
+          />
+          <div className="flex items-center justify-center py-1">
+            <span className="rounded-full border border-border/60 bg-surface-2 px-3 py-1 text-sm font-bold text-ink-subtle">
+              VS
+            </span>
+          </div>
+          <MatchupTeam
+            team={candidate.teamB}
+            label="B팀"
+            tone="b"
+            banCode={banB}
+            byId={byId}
+          />
+        </div>
+
+        <p className="text-center text-xs text-ink-subtle">
+          점수차{" "}
+          <span className="tabular-nums text-ink">{diff.toLocaleString()}</span>
+        </p>
+
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="secondary" onClick={copyShare}>
+            디스코드 복사
+          </Button>
           <Button onClick={saveMapBan} disabled={pending}>
-            {pending ? "저장 중…" : "다음 (결과 입력)"}
+            {pending ? "저장 중…" : "결과 입력으로 →"}
           </Button>
         </div>
       </div>
@@ -867,7 +1009,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
   if (step === "result" && saved) {
     return (
       <div className="flex flex-col gap-5">
-        <BackBar onBack={() => setStep("ban")} label="영웅 밴" />
+        <BackBar onBack={() => setStep("review")} label="최종 확인" />
         <h2 className="text-lg font-medium">결과 입력</h2>
 
         <div className="flex flex-col gap-2">
@@ -1084,6 +1226,83 @@ function TeamCard({
           조합 패널티 −{team.comboPenalty.toLocaleString()}
         </p>
       )}
+    </div>
+  );
+}
+
+/** 최종 대진표용 팀 패널 (헤더+멤버+밴, 팀 색상 강조) */
+function MatchupTeam({
+  team,
+  label,
+  tone,
+  banCode,
+  byId,
+}: {
+  team: BuiltTeam;
+  label: string;
+  tone: "a" | "b";
+  banCode: string;
+  byId: Map<string, Participant>;
+}) {
+  const isA = tone === "a";
+  const ban = banCode ? HERO_BY_CODE[banCode] : null;
+  return (
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden rounded-xl border bg-surface-1",
+        isA ? "border-team-a/40" : "border-team-b/40",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-between gap-2 px-4 py-3",
+          isA ? "bg-team-a/10" : "bg-team-b/10",
+        )}
+      >
+        <span
+          className={cn(
+            "text-base font-semibold",
+            isA ? "text-team-a" : "text-team-b",
+          )}
+        >
+          {label}
+        </span>
+        <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium tabular-nums text-ink-subtle">
+          {team.finalScore.toLocaleString()}점
+        </span>
+      </div>
+      <ul className="flex flex-1 flex-col divide-y divide-border/40">
+        {team.members.map((m) => (
+          <li
+            key={m.participant.id}
+            className="flex items-center justify-between gap-2 px-4 py-3"
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <RoleIcon role={m.role} size={20} />
+              <span className="truncate text-[15px] font-medium">
+                {byId.get(m.participant.id)?.battleTag ??
+                  m.participant.battleTag}
+              </span>
+            </span>
+            <span className="shrink-0 text-sm tabular-nums text-ink-subtle">
+              {m.individualScore.toLocaleString()}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center gap-3 border-t border-border/40 bg-surface-2/40 px-4 py-3">
+        <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-3">
+          {ban ? (
+            <HeroImage code={ban.code} size={56} className="rounded-lg" />
+          ) : (
+            <span className="text-[11px] text-ink-tertiary">없음</span>
+          )}
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs text-ink-subtle">밴 영웅</span>
+          <span className="font-medium">{ban ? ban.nameKo : "밴 없음"}</span>
+        </div>
+      </div>
     </div>
   );
 }
