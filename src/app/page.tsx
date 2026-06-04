@@ -22,6 +22,15 @@ export default function Home() {
         >
           내전 편성하기
         </Link>
+        <p className="mt-6 text-sm text-ink-subtle">
+          <Link
+            href="/record"
+            className="underline underline-offset-4 transition-colors hover:text-foreground"
+          >
+            개인 전적 검색
+          </Link>{" "}
+          은 로그인 없이 이용할 수 있어요
+        </p>
       </div>
     </main>
   );
