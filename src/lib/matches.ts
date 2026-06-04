@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { ROLE_ORDER } from "@/constants/heroes";
 import type { BuildMode, Role } from "@/domain/types";
 import { createClient } from "@/lib/supabase/server";
@@ -7,7 +8,7 @@ export interface MatchMemberView {
   memberId: string;
   battleTag: string;
   assignedRole: Role;
-  heroUsed: string | null;
+  heroesUsed: string[];
 }
 
 export interface MatchTeamView {
@@ -35,8 +36,11 @@ export interface MatchView {
  * 채널의 모든 매치를 팀·팀원까지 펼쳐 로드 (F12 통계, F12c 수정·삭제용).
  * 통계는 저장하지 않고 조회 시 즉석 집계 (requirements §10).
  */
-export async function loadMatches(channelId: string): Promise<MatchView[]> {
-  const supabase = await createClient();
+export async function loadMatches(
+  channelId: string,
+  client?: SupabaseClient,
+): Promise<MatchView[]> {
+  const supabase = client ?? (await createClient());
 
   const { data: matches } = await supabase
     .from("matches")
@@ -59,7 +63,7 @@ export async function loadMatches(channelId: string): Promise<MatchView[]> {
 
   const { data: teamMembers } = await supabase
     .from("team_members")
-    .select("id, team_id, member_id, assigned_role, hero_used")
+    .select("id, team_id, member_id, assigned_role, heroes_used")
     .in(
       "team_id",
       teamIds.length ? teamIds : ["00000000-0000-0000-0000-000000000000"],
@@ -87,7 +91,7 @@ export async function loadMatches(channelId: string): Promise<MatchView[]> {
       memberId: tm.member_id,
       battleTag: battleTagById.get(tm.member_id) ?? "(알 수 없음)",
       assignedRole: tm.assigned_role as Role,
-      heroUsed: tm.hero_used ?? null,
+      heroesUsed: (tm.heroes_used as string[] | null) ?? [],
     });
     membersByTeam.set(tm.team_id, list);
   }

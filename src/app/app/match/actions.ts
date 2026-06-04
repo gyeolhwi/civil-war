@@ -148,12 +148,12 @@ export interface SaveResultInput {
   scoreA: number;
   scoreB: number;
   memo: string | null;
-  /** teamMemberId → 사용 영웅 코드 (미입력은 생략) */
-  heroes: Record<string, string>;
+  /** teamMemberId → 사용 영웅 코드 배열 (선택 순서 보존, 미입력은 빈 배열/생략) */
+  heroes: Record<string, string[]>;
 }
 
 /**
- * 결과 입력 (workflow [11], SC-26): matches + teams.is_winner + team_members.hero_used.
+ * 결과 입력 (workflow [11], SC-26): matches + teams.is_winner + team_members.heroes_used.
  * supabase-js는 트랜잭션 미지원이라 순차 처리 (v1 허용).
  */
 export async function saveResult(
@@ -185,12 +185,11 @@ export async function saveResult(
       .eq("id", t.id);
   }
 
-  // team_members.hero_used
-  for (const [teamMemberId, heroCode] of Object.entries(input.heroes)) {
-    if (!heroCode) continue;
+  // team_members.heroes_used (빈 배열도 반영 — 수정 시 영웅 제거 가능)
+  for (const [teamMemberId, heroCodes] of Object.entries(input.heroes)) {
     await supabase
       .from("team_members")
-      .update({ hero_used: heroCode })
+      .update({ heroes_used: heroCodes.filter(Boolean) })
       .eq("id", teamMemberId);
   }
 

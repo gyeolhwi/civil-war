@@ -174,7 +174,8 @@ Supabase `auth.users`와 1:1. 아이디(username) 로그인을 위한 프로필.
 | `member_id` | uuid | FK → `members.id` | |
 | `assigned_role` | text | NOT NULL, CHECK in (tank/dps/support) | 배정 포지션 |
 | `individual_score` | integer | NOT NULL | 배정 포지션 티어 × 가중치 (§7.3) |
-| `hero_used` | text | nullable | 사용 영웅 (결과 입력 시, **선택**. 미입력은 통계 "미기록") |
+| `heroes_used` | text[] | NOT NULL, default '{}' | 사용 영웅 **여러 개** (영웅 교체 반영, 순서 보존, 결과 입력 시 선택). migration 0002 |
+| ~~`hero_used`~~ | text | nullable | (deprecated) 단일 영웅. 0002에서 `heroes_used`로 대체, 드롭은 후속 |
 | `pick_order` | smallint | nullable | 드래프트 픽 순서 1~8 (자동 모드 NULL) |
 | | | **UNIQUE: (team_id, member_id)** | |
 

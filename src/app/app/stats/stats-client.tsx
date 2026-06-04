@@ -2,6 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { HeroMultiSelect } from "@/components/hero-multi-select";
+import { PersonalRecordView } from "@/components/personal-record";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,19 +17,13 @@ import { HeroImage, ModeIcon, RoleIcon } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  HERO_BY_CODE,
-  HEROES_BY_ROLE,
-  ROLE_LABEL_KO,
-} from "@/constants/heroes";
+import { HERO_BY_CODE } from "@/constants/heroes";
 import { MAP_BY_CODE } from "@/constants/maps";
 import type { MatchTeamView, MatchView } from "@/lib/matches";
+import { computePersonalStats } from "@/lib/personal-stats";
 import { cn } from "@/lib/utils";
 import { saveResult } from "../match/actions";
 import { deleteMatch } from "./actions";
-
-const selectClass =
-  "h-9 rounded-lg border border-input bg-surface-2 px-2.5 text-sm text-ink outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 [color-scheme:dark]";
 
 const BUILD_MODE_LABEL: Record<string, string> = {
   basic: "자동 밸런스",
@@ -215,10 +211,14 @@ function TeamColumn({
               <RoleIcon role={m.assignedRole} size={14} />
               {m.battleTag}
             </span>
-            {m.heroUsed && (
-              <span className="flex items-center gap-1 text-ink-subtle">
-                <HeroImage code={m.heroUsed} size={18} />
-                {heroName(m.heroUsed)}
+            {m.heroesUsed.length > 0 && (
+              <span className="flex flex-wrap items-center justify-end gap-x-1 gap-y-0.5 text-ink-subtle">
+                {m.heroesUsed.map((code) => (
+                  <span key={code} className="flex items-center gap-1">
+                    <HeroImage code={code} size={18} />
+                    {heroName(code)}
+                  </span>
+                ))}
               </span>
             )}
           </li>
@@ -252,53 +252,10 @@ function PersonalTab({ matches }: { matches: MatchView[] }) {
       : members;
   }, [members, memberSearch]);
 
-  const stats = useMemo(() => {
-    let games = 0;
-    let wins = 0;
-    let losses = 0;
-    let draws = 0;
-    const heroes = new Map<string, number>();
-    const mates = new Map<string, { battleTag: string; count: number }>();
-
-    for (const m of matches) {
-      const team = m.teams.find((t) =>
-        t.members.some((mem) => mem.memberId === memberId),
-      );
-      if (!team) continue;
-      const self = team.members.find((mem) => mem.memberId === memberId);
-      const decided = m.winnerSide !== null || m.scoreA !== null;
-      if (!decided) continue;
-      games++;
-      if (m.winnerSide === null) draws++;
-      else if (m.winnerSide === team.side) wins++;
-      else losses++;
-
-      if (self?.heroUsed) {
-        heroes.set(self.heroUsed, (heroes.get(self.heroUsed) ?? 0) + 1);
-      }
-      for (const mate of team.members) {
-        if (mate.memberId === memberId) continue;
-        const prev = mates.get(mate.memberId);
-        mates.set(mate.memberId, {
-          battleTag: mate.battleTag,
-          count: (prev?.count ?? 0) + 1,
-        });
-      }
-    }
-
-    const decidedGames = wins + losses;
-    return {
-      games,
-      wins,
-      losses,
-      draws,
-      winRate: decidedGames ? Math.round((wins / decidedGames) * 100) : null,
-      topHeroes: [...heroes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5),
-      topMates: [...mates.values()]
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5),
-    };
-  }, [matches, memberId]);
+  const stats = useMemo(
+    () => computePersonalStats(matches, memberId),
+    [matches, memberId],
+  );
 
   if (members.length === 0) {
     return (
@@ -339,82 +296,7 @@ function PersonalTab({ matches }: { matches: MatchView[] }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label="판수" value={`${stats.games}`} />
-        <Stat
-          label="전적"
-          value={`${stats.wins}승 ${stats.losses}패 ${stats.draws}무`}
-        />
-        <Stat
-          label="승률"
-          value={stats.winRate === null ? "—" : `${stats.winRate}%`}
-        />
-        <Stat
-          label="대표 영웅"
-          value={
-            stats.topHeroes[0] ? (heroName(stats.topHeroes[0][0]) ?? "—") : "—"
-          }
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <ListBlock
-          title="사용 영웅"
-          items={stats.topHeroes.map(([code, n]) => ({
-            label: heroName(code) ?? code,
-            count: n,
-          }))}
-          empty="기록된 영웅이 없습니다 (미기록)"
-        />
-        <ListBlock
-          title="자주 같은 팀"
-          items={stats.topMates.map((mt) => ({
-            label: mt.battleTag,
-            count: mt.count,
-          }))}
-          empty="데이터가 부족합니다"
-        />
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/60 px-3 py-2">
-      <p className="text-xs text-ink-subtle">{label}</p>
-      <p className="mt-0.5 font-medium">{value}</p>
-    </div>
-  );
-}
-
-function ListBlock({
-  title,
-  items,
-  empty,
-}: {
-  title: string;
-  items: { label: string; count: number }[];
-  empty: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-sm font-medium">{title}</p>
-      {items.length === 0 ? (
-        <p className="text-xs text-ink-subtle">{empty}</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {items.map((it) => (
-            <li
-              key={it.label}
-              className="flex justify-between gap-2 text-sm text-ink-muted"
-            >
-              <span>{it.label}</span>
-              <span className="tabular-nums text-ink-subtle">{it.count}회</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <PersonalRecordView stats={stats} />
     </div>
   );
 }
@@ -432,11 +314,9 @@ function EditMatchDialog({ match }: { match: MatchView }) {
   const [scoreA, setScoreA] = useState(match.scoreA?.toString() ?? "");
   const [scoreB, setScoreB] = useState(match.scoreB?.toString() ?? "");
   const [memo, setMemo] = useState(match.memo ?? "");
-  // teamMemberId → 영웅 코드 ("" = 미입력)
-  const [heroInputs, setHeroInputs] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      allMembers.map((m) => [m.teamMemberId, m.heroUsed ?? ""]),
-    ),
+  // teamMemberId → 영웅 코드 배열 ([] = 미입력)
+  const [heroInputs, setHeroInputs] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(allMembers.map((m) => [m.teamMemberId, m.heroesUsed])),
   );
 
   function submit() {
@@ -450,10 +330,8 @@ function EditMatchDialog({ match }: { match: MatchView }) {
       toast.error("스코어는 0 이상의 정수로 입력하세요");
       return;
     }
-    const heroes: Record<string, string> = {};
-    for (const [tmId, code] of Object.entries(heroInputs)) {
-      if (code) heroes[tmId] = code;
-    }
+    // 모든 멤버를 전송 (빈 배열도 보내야 수정 시 영웅 제거가 반영됨)
+    const heroes: Record<string, string[]> = { ...heroInputs };
     startTransition(async () => {
       const res = await saveResult(match.id, {
         winnerSide: winner === "draw" ? null : winner,
@@ -527,30 +405,22 @@ function EditMatchDialog({ match }: { match: MatchView }) {
             <div key={t.side} className="flex flex-col gap-2">
               <p className="text-sm font-medium">{t.side}팀</p>
               {t.members.map((m) => (
-                <div key={m.teamMemberId} className="flex items-center gap-2">
-                  <span className="flex w-24 shrink-0 items-center gap-1.5 text-sm">
+                <div key={m.teamMemberId} className="flex items-start gap-2">
+                  <span className="flex w-24 shrink-0 items-center gap-1.5 pt-1.5 text-sm">
                     <RoleIcon role={m.assignedRole} size={14} />
                     <span className="truncate">{m.battleTag}</span>
                   </span>
-                  <select
-                    className={cn(selectClass, "flex-1")}
-                    value={heroInputs[m.teamMemberId] ?? ""}
-                    onChange={(e) =>
+                  <HeroMultiSelect
+                    className="flex-1"
+                    role={m.assignedRole}
+                    value={heroInputs[m.teamMemberId] ?? []}
+                    onChange={(codes) =>
                       setHeroInputs((prev) => ({
                         ...prev,
-                        [m.teamMemberId]: e.target.value,
+                        [m.teamMemberId]: codes,
                       }))
                     }
-                  >
-                    <option value="">
-                      {ROLE_LABEL_KO[m.assignedRole]} 영웅 (선택)
-                    </option>
-                    {HEROES_BY_ROLE[m.assignedRole].map((h) => (
-                      <option key={h.code} value={h.code}>
-                        {h.nameKo}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               ))}
             </div>

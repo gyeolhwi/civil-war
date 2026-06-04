@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { HeroMultiSelect } from "@/components/hero-multi-select";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,12 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SortSelect } from "@/components/ui/sort-select";
-import {
-  HERO_BY_CODE,
-  HEROES_BY_ROLE,
-  ROLE_LABEL_KO,
-  ROLE_ORDER,
-} from "@/constants/heroes";
+import { HERO_BY_CODE, ROLE_LABEL_KO, ROLE_ORDER } from "@/constants/heroes";
 import { MAP_BY_CODE, MODE_LABEL_KO } from "@/constants/maps";
 import { buildDiscordText, type ShareTeam } from "@/domain/discord";
 import {
@@ -197,7 +193,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
   const [scoreA, setScoreA] = useState("");
   const [scoreB, setScoreB] = useState("");
   const [memo, setMemo] = useState("");
-  const [heroInputs, setHeroInputs] = useState<Record<string, string>>({});
+  const [heroInputs, setHeroInputs] = useState<Record<string, string[]>>({});
 
   // 팀장 드래프트 상태
   const [captainIds, setCaptainIds] = useState<string[]>([]); // 직접지정 선택 버퍼
@@ -428,9 +424,9 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
       toast.error("스코어는 0 이상의 정수로 입력하세요");
       return;
     }
-    const heroes: Record<string, string> = {};
-    for (const [tmId, code] of Object.entries(heroInputs)) {
-      if (code) heroes[tmId] = code;
+    const heroes: Record<string, string[]> = {};
+    for (const [tmId, codes] of Object.entries(heroInputs)) {
+      if (codes.length) heroes[tmId] = codes;
     }
     startTransition(async () => {
       const res = await saveResult(saved.matchId, {
@@ -1126,33 +1122,25 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
                     return (
                       <div
                         key={m.teamMemberId}
-                        className="flex items-center gap-2"
+                        className="flex items-start gap-2"
                       >
-                        <span className="flex w-28 shrink-0 items-center gap-1.5 text-sm">
+                        <span className="flex w-28 shrink-0 items-center gap-1.5 pt-1.5 text-sm">
                           <RoleIcon role={m.assignedRole} size={14} />
                           <span className="truncate">
                             {p?.battleTag ?? m.memberId}
                           </span>
                         </span>
-                        <select
-                          className={cn(selectClass, "flex-1")}
-                          value={heroInputs[m.teamMemberId] ?? ""}
-                          onChange={(e) =>
+                        <HeroMultiSelect
+                          className="flex-1"
+                          role={m.assignedRole}
+                          value={heroInputs[m.teamMemberId] ?? []}
+                          onChange={(codes) =>
                             setHeroInputs((prev) => ({
                               ...prev,
-                              [m.teamMemberId]: e.target.value,
+                              [m.teamMemberId]: codes,
                             }))
                           }
-                        >
-                          <option value="">
-                            {ROLE_LABEL_KO[m.assignedRole]} 영웅 (선택)
-                          </option>
-                          {HEROES_BY_ROLE[m.assignedRole].map((h) => (
-                            <option key={h.code} value={h.code}>
-                              {h.nameKo}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </div>
                     );
                   })}
