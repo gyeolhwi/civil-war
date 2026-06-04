@@ -1,6 +1,7 @@
 "use server";
 
 import { loadMatches } from "@/lib/matches";
+import { loadMemberProfile, type MemberProfile } from "@/lib/member-profile";
 import { computePersonalStats, type PersonalStats } from "@/lib/personal-stats";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -63,24 +64,24 @@ export async function searchMembers(query: string): Promise<MemberHit[]> {
   }));
 }
 
+export interface RecordResult {
+  profile: MemberProfile;
+  stats: PersonalStats;
+}
+
 /**
- * 특정 멤버의 특정 채널 개인전적을 집계해 반환 (공개).
+ * 특정 멤버의 특정 채널 개인전적 + 프로필을 반환 (공개).
  * 멤버가 해당 채널 소속인지 확인 후, 그 채널 범위로만 조회한다.
  */
 export async function getRecord(
   memberId: string,
   channelId: string,
-): Promise<PersonalStats | null> {
+): Promise<RecordResult | null> {
   const supabase = createAdminClient();
 
-  const { data: membership } = await supabase
-    .from("channel_members")
-    .select("member_id")
-    .eq("member_id", memberId)
-    .eq("channel_id", channelId)
-    .maybeSingle();
-  if (!membership) return null;
+  const profile = await loadMemberProfile(channelId, memberId, supabase);
+  if (!profile) return null; // 소속 아님 → 조회 거부
 
   const matches = await loadMatches(channelId, supabase);
-  return computePersonalStats(matches, memberId);
+  return { profile, stats: computePersonalStats(matches, memberId) };
 }
