@@ -3,10 +3,36 @@
 > 세션 이어가기 진입점. **여기를 먼저 읽고** 다음 작업을 결정한다.
 > 작업을 끝낼 때마다 이 파일의 "다음 할 일"과 "완료" 섹션을 갱신할 것.
 
-마지막 갱신: 2026-06-04
+마지막 갱신: 2026-06-05
 
-> **현재 한 줄 요약:** 핵심 기능(Phase 0~5) 완료 + 폴리싱(Phase 6) 대부분 반영 + **Vercel 배포 완료 → 실사용 중**.
-> 지금은 *실사용 피드백 기반 FIX·개선* 단계. 테스트 24/24 통과.
+> **현재 한 줄 요약:** 핵심 기능 완료 + 배포·실사용 중. 이번 세션에 **op.gg식 전적/프로필 개편 · 영웅 다중등록 · 공개검색(/record) · 밸런스 리워크**를 작업함.
+> 코드는 빌드·테스트(32/32) 통과 상태이나 **미커밋·미푸시·미배포·로컬 미검증**.
+
+---
+
+## 🔖 이어서 작업 (중단점 2026-06-05) — 다음 세션은 여기부터
+
+### 지금 상태
+- **dev에 미푸시 커밋 5개** (op.gg 개편·다중영웅·공개검색). `origin/dev`보다 5 앞섬.
+- **미커밋 작업 2덩어리** (워킹트리):
+  - **A. FIX** — `/record` 뒤로가기 버튼 통일 + 전적 "미입력" 칩 깨짐 수정 (`record-search.tsx`, `match-history.tsx`)
+  - **B. FEAT 밸런스 리워크** — 영웅 `comp`/`func` 분류 + 조합 감점 재설계 (`domain/types·scoring·team-builder.ts`, `constants/heroes.ts`, `domain/scoring.test.ts`, `docs/discussion/hero-classification.md`)
+- 검증: tsc·biome·테스트 32/32·빌드 전부 ✅. **단 브라우저 로컬 검증은 안 함.**
+
+### 이어서 할 일 (순서대로)
+- [ ] 1. **미커밋 커밋** (`/commit-auto`) — A는 `FIX`, B는 `FEAT(balance)`로 분리. `balancing-data-review.md`는 무관하니 제외.
+- [ ] 2. **로컬 확인** (`pnpm dev`): `/record`(검색·프로필·전적 펼침), `/app/stats` op.gg 화면, 내전 자동편성에서 밸런스 감점이 의도대로 먹는지
+- [ ] 3. **`dev` push → Vercel Preview** 배포 확인
+- [ ] 4. 이상 없으면 **`main` 머지 → 프로덕션 배포**
+
+### 푸시/배포 전 확인
+- [ ] Vercel **Preview 환경**에 `NEXT_PUBLIC_SUPABASE_*` 들어갔는지 (예전 Preview 500 원인 — 공개 키 3종을 All Environments로)
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` 프로덕션·프리뷰 등록 ✅ (이번 세션에 완료, 값이 service_role인지만 재확인)
+
+### 다음 작업 후보 (선택)
+- 밸런스 감점 수치 튜닝 (`COMBO_PENALTY.compMismatch=150` 등, 코드 상수)
+- `0003` 마이그레이션으로 deprecated `team_members.hero_used` 드롭 (순수 정리)
+- `hero-classification.md` ⚠️ 항목 재검수 / v2 백로그(디스코드 봇 → Edge Function)
 
 ---
 
