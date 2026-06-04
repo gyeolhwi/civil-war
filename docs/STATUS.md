@@ -3,7 +3,10 @@
 > 세션 이어가기 진입점. **여기를 먼저 읽고** 다음 작업을 결정한다.
 > 작업을 끝낼 때마다 이 파일의 "다음 할 일"과 "완료" 섹션을 갱신할 것.
 
-마지막 갱신: 2026-05-29
+마지막 갱신: 2026-06-04
+
+> **현재 한 줄 요약:** 핵심 기능(Phase 0~5) 완료 + 폴리싱(Phase 6) 대부분 반영 + **Vercel 배포 완료 → 실사용 중**.
+> 지금은 *실사용 피드백 기반 FIX·개선* 단계. 테스트 24/24 통과.
 
 ---
 
@@ -37,35 +40,84 @@
 - **채널 시드 완료 (2026-05-29)**: service role 키로 라이브 검증 스크립트 실행 → `gyeori0626` **슈퍼 승격 + "테스트 내전 채널" 생성** (유지됨). 블로커 해소.
 - **DB 데이터 계층 라이브 검증 (2026-05-29) — 23/23 PASS**: 스키마 10테이블 일치, 멤버 등록→참가자 로드→`createMatch`→`saveResult`→`loadMatches` insert/select 흐름이 실제 DB에서 동작(제약·CASCADE·RESTRICT 포함). 일회용 스크립트는 검증 후 삭제. (※ service role은 RLS 우회 — RLS 정책 자체의 실사용자 검증은 미수행)
 
+---
+
+### Phase 6 — 폴리싱 (2026-05-29 ~ 06-01, 약 40커밋)
+
+> ROADMAP Phase 6 항목 대부분이 이 기간에 실제 반영됨. 핵심만 묶어 기록.
+
+- **영웅·맵 이미지 전량 배치**: `public/images/heroes/` 51종, `public/images/maps/` 31종(jpg).
+  추가로 역할 마크(`roles/`), 맵 모드 아이콘(`modes/`), 티어 엠블럼(`tiers/`) SVG.
+  → 폴백 컴포넌트 + `next/image`→`img` 전환 + 프리로드 + 용량 최적화(26MB→7.6MB).
+  → STATUS 기존 기술부채 "이미지 미배치" **해소**.
+- **누락 데이터 보강**: 영웅 3종·맵 4종 마스터 추가 (멤버폼·맵선정·전적 전반 반영).
+- **연출/모션**: 맵 선정 슬롯머신 추첨 + 확정 줌·글로우 배지, 드래프트 실시간 점수 카운트업,
+  로그인 진행 표시 + 전역 상단 로딩 바.
+- **UI 개편**:
+  - 멤버 관리 — 검색·정렬 + 카드형 UI
+  - 영웅 밴 — 카드 그리드(초상+A/B 슬롯 토글), 상대 밴 영웅 선택 불가, 밴 단계에 팀 카드·라인업 통합
+  - 드래프트 후보 카드 — 선호 영웅 초상·역할 점수 칩, 멤버/드래프트 탱→딜→힐 정렬
+  - 최종 대진표 확인 단계 추가
+- **테마/호환 FIX**: 윈도우(라이트 OS)에서 native `<select>`·자동완성·토스트 흰배경 깨짐 보정,
+  hydration 경고 억제(`suppressHydrationWarning`), 애니메이션 reduced-motion 무시.
+- **인프라**: Vercel 함수 리전을 **서울(icn1)**로 고정 (`vercel.json`) — Supabase 서울 이전과 일치.
+
+### Phase 7 — 배포 (실사용 중)
+
+- **Vercel 배포 완료**, 디스코드 채널에서 실제 사용 시작됨.
+  (RLS 적용 경로·로그인 세션이 실사용으로 사실상 검증되는 중)
+
+### 개선 1차 — 영웅 다중 + 개인전적 + 공개검색 (2026-06-04, 코드 완료)
+
+> 상세·체크리스트: [`discussion/personal-stats-multihero.md`](discussion/personal-stats-multihero.md)
+> 빌드·테스트(24/24)·타입체크 통과. **단, 배포 전 수동 작업 2건 남음(아래 ⚠️).**
+
+- **영웅 다중 등록(#1)**: `team_members.heroes_used text[]`(migration 0002)로 확장.
+  결과 입력·전적 수정이 단일 select → 칩 다중선택(`components/hero-multi-select.tsx`), 전적 표시도 다중 초상.
+- **개인전적 리스트(#2)**: 개인 탭에 참여 매치 리스트(최신순·맵·승패·본인영웅) 추가.
+- **대표영웅 정합성(#3)**: "대표 영웅"(최다·최근 혼동) → **주 영웅(최다) + 최근 영웅** 2칸 분리.
+  집계를 `lib/personal-stats.ts` 순수함수로 추출 → `/app/stats`와 공개검색이 공유.
+- **공개 개인전적 검색(추가)**: 로그인 없는 `/record` — 배틀태그·닉네임 검색 → 소속 채널 선택 → 전적(읽기 전용).
+  service-role 클라이언트(`lib/supabase/admin.ts`, 서버 액션 전용), 채널 격리 유지.
+
 ## 🔶 진행 중 / 막힌 곳
 
 - ~~채널 시드~~ ✅ 완료 (위 참조).
-- ~~대시보드 메뉴 404~~ — 4개 메뉴(`/app/members`·`/app/match/new`·`/app/stats`·`/app/channel`) 모두 구현 완료.
-- **브라우저 E2E 미검증**: 데이터 계층은 검증됐으나 실제 화면 클릭/로그인 세션/RLS 적용 경로는 아직. (Playwright 미설치, 또는 수동 확인)
+- ~~대시보드 메뉴 404~~ — 4개 메뉴 모두 구현 완료.
+- ~~영웅/맵 이미지 미배치~~ ✅ 전량 배치 (Phase 6).
+- **밸런싱 로직 검토 (토의 중)** → [`discussion/balancing-data-review.md`](discussion/balancing-data-review.md)
+  - 영웅·맵 데이터의 DB 이관 **전에** 현재 로직 결함 5종(A~E)을 점검하는 문서.
+  - 문서 하단 "4. 내 의견 (사용자 작성란)"이 **비어 있음 → 사용자 결정 대기**.
+- **E2E 자동화 미구축**: 실사용으로 화면·세션·RLS는 사실상 검증되는 중이나, Playwright 등 자동 E2E는 아직 없음.
 
-## ▶️ 다음 할 일 (순서대로)
+## ▶️ 다음 할 일 (실사용 피드백 기반 선택)
 
-0. ~~**채널 시드**~~ ✅ 완료. (참고용 SQL — SQL Editor에서 수동 실행 시)
-   ```sql
-   update public.admins set is_super = true where username = 'gyeori0626';
-   insert into public.channels (name, owner_admin_id)
-   select '테스트 내전 채널', a.id from public.admins a
-   where a.username = 'gyeori0626'
-     and not exists (select 1 from public.channels c where c.owner_admin_id = a.id);
-   ```
-1. ✅ **멤버 관리 화면** (`/app/members`) — 완료 (위 "완료" 섹션 참조). **남은 확인**: 채널 시드(위 0) 후 실제 등록·수정·삭제 동작 브라우저 검증.
-2. ✅ **내전 워크플로우 — 기본 모드** (`/app/match/new`) — 완료 (위 "완료" 참조). **남은 확인**: 채널 시드 + 멤버 10명 후 브라우저에서 풀 플로우(팀확정→맵→밴→결과→다음판) 검증.
-2b. ✅ **팀장 드래프트** — 완료(클릭 기반). **후속(선택)**: 팀장 탱커/예능 모드, dnd-kit 드래그 전환, 카운트업 모션.
-3. ✅ **전적·통계 + 매치 수정/삭제** (`/app/stats`) — 완료. **남은 확인**: 매치 데이터 쌓인 뒤 브라우저 검증.
-4. ✅ **팀 구성 복사** (F12b, 위저드 내 디스코드 복사), ✅ **채널 정보** (`/app/channel`)
-5. **다음 우선순위**: (a) 팀장 드래프트([5-B][6], dnd-kit) 또는 (b) 폴리싱: 모션(점수 카운트업 등), 반응형, 영웅/맵 이미지 배치
+> 핵심 기능·폴리싱·배포까지 끝난 상태. 이제부터는 **순서 고정이 아니라, 실사용 피드백에 따라 선택**한다.
+
+**A. 실사용 FIX (들어오는 대로 최우선)**
+- 사용자 버그/요청을 재현 → 원인 → 수정 순으로 처리.
+- 메모리 미해결 건: Vercel Preview `MIDDLEWARE_INVOCATION_FAILED` (Supabase env 미반영 추정) — 재발 시 우선.
+
+**B. 밸런싱 로직 검토 + 데이터 DB 이관**
+- [`discussion/balancing-data-review.md`](discussion/balancing-data-review.md) A~E 항목에 사용자 의견 채우기 → 결정 → 반영.
+- 결정 후: 영웅·맵 마스터 DB 이관(콘텐츠), 규칙은 코드 유지.
+
+**C. 남은 폴리싱 (선택)**
+- 팀장 탱커/예능 모드, dnd-kit 드래그 전환, 반응형(모바일) 다듬기.
+
+**D. 기술 부채 정리** (아래 ⚠️ 섹션)
 
 ## ⚠️ 미해결 / 기술 부채
 
-- `src/middleware.ts` — Next 16에서 deprecated 경고(`proxy.ts` 권장). 동작은 정상
-- `seed.sql`의 username이 `admin` 하드코딩 — 실제 계정과 불일치 (위 "다음 할 일 0"에서 우회)
-- 이메일 도메인: 현재 실제 gmail 계정 사용 중. `@civilwar.local` 순수 아이디 계정은 미생성 (필요 시 `ops/supabase-setup.md` 참조)
-- 영웅/맵 이미지(`/public/heroes/`, `/public/maps/`) 미배치 — UI에서 깨진 이미지 가능, placeholder 필요
+- **[배포 전 필수] 개선 1차 수동 작업 2건**:
+  1. Supabase SQL Editor에서 `supabase/migrations/0002_team_member_heroes.sql` **실행** (heroes_used 컬럼 추가·백필).
+  2. Vercel 프로덕션 env에 `SUPABASE_SERVICE_ROLE_KEY` 등록 (공개 `/record` 검색 동작 전제).
+  - ↑ 둘 다 안 하면: 결과 입력 시 영웅 저장 실패 / `/record` 500.
+- `src/middleware.ts` — Next 16에서 deprecated 경고(`proxy.ts` 권장). 동작은 정상.
+- **Vercel Preview `MIDDLEWARE_INVOCATION_FAILED`** — Supabase env 미반영 추정, 미해결 (프로덕션 동작은 정상).
+- `seed.sql`의 username이 `admin` 하드코딩 — 실제 계정과 불일치 (채널 시드는 수동 SQL로 우회 완료).
+- 이메일 도메인: 현재 실제 gmail 계정 사용 중. `@civilwar.local` 순수 아이디 계정은 미생성 (필요 시 `ops/supabase-setup.md` 참조).
+- E2E 자동 테스트(Playwright 등) 미구축 — 도메인 단위테스트(24개)만 존재.
 
 ## 🔧 환경 / 실행
 
