@@ -1,5 +1,7 @@
 import type { Role } from "@/domain/types";
-import type { MatchView } from "./matches";
+import type { MatchTeamView, MatchView } from "./matches";
+
+export type ResultKind = "win" | "loss" | "draw" | "pending";
 
 /** 개인전적의 한 매치 (본인 관점) */
 export interface PersonalMatch {
@@ -10,9 +12,29 @@ export interface PersonalMatch {
   assignedRole: Role;
   /** 본인이 사용한 영웅 (순서 보존) */
   heroesUsed: string[];
-  result: "win" | "loss" | "draw" | "pending";
+  result: ResultKind;
   scoreA: number | null;
   scoreB: number | null;
+  /** 상세(아코디언)용 — 양 팀 전체 라인업·밴·메모 */
+  teams: MatchTeamView[];
+  bannedHeroA: string | null;
+  bannedHeroB: string | null;
+  memo: string | null;
+}
+
+/** 영웅별 집계 (모스트 영웅) */
+export interface HeroStat {
+  code: string;
+  games: number;
+  wins: number;
+}
+
+/** 같이 한 멤버 집계 (듀오) */
+export interface MateStat {
+  memberId: string;
+  battleTag: string;
+  games: number;
+  wins: number;
 }
 
 export interface PersonalStats {
@@ -27,18 +49,22 @@ export interface PersonalStats {
   mainHero: string | null;
   /** 최근 영웅 = 가장 최근 판에서 마지막으로 사용한 영웅 */
   recentHero: string | null;
-  /** 사용 영웅 빈도 상위 (code, 횟수) */
-  topHeroes: [string, number][];
-  /** 자주 같은 팀 상위 */
-  topMates: { memberId: string; battleTag: string; count: number }[];
+  /** 최근 전적 흐름 (최신순, 확정 판만, 최대 12) */
+  recentForm: { matchId: string; result: Exclude<ResultKind, "pending"> }[];
+  /** 사용 영웅 집계 (판수 desc, 상위 8) */
+  topHeroes: HeroStat[];
+  /** 자주 같은 팀 (판수 desc, 상위 6) */
+  topMates: MateStat[];
   /** 참여 매치 (최신순) */
   matches: PersonalMatch[];
 }
 
+const RECENT_FORM_MAX = 12;
+
 /**
  * 한 멤버의 개인전적을 즉석 집계 (requirements §10).
  * `matches`는 played_at 내림차순(최신 먼저)으로 들어온다고 가정한다.
- * `/app/stats`와 공개 검색이 같은 로직을 공유해 정합성을 보장한다.
+ * `/app/stats`와 공개 검색(/record)이 같은 로직을 공유해 정합성을 보장한다.
  */
 export function computePersonalStats(
   matches: MatchView[],
@@ -47,9 +73,10 @@ export function computePersonalStats(
   let wins = 0;
   let losses = 0;
   let draws = 0;
-  const heroCount = new Map<string, number>();
-  const mates = new Map<string, { battleTag: string; count: number }>();
+  const heroStats = new Map<string, HeroStat>();
+  const mates = new Map<string, MateStat>();
   const personalMatches: PersonalMatch[] = [];
+  const recentForm: PersonalStats["recentForm"] = [];
   let recentHero: string | null = null;
 
   for (const m of matches) {
@@ -61,7 +88,7 @@ export function computePersonalStats(
     if (!self) continue;
 
     const decided = m.winnerSide !== null || m.scoreA !== null;
-    const result: PersonalMatch["result"] = !decided
+    const result: ResultKind = !decided
       ? "pending"
       : m.winnerSide === null
         ? "draw"
@@ -79,6 +106,10 @@ export function computePersonalStats(
       result,
       scoreA: m.scoreA,
       scoreB: m.scoreB,
+      teams: m.teams,
+      bannedHeroA: m.bannedHeroA,
+      bannedHeroB: m.bannedHeroB,
+      memo: m.memo,
     });
 
     // 최근 영웅: 가장 최근(=처음 만나는) 판에서 영웅을 기록한 멤버
@@ -86,27 +117,38 @@ export function computePersonalStats(
       recentHero = self.heroesUsed[self.heroesUsed.length - 1];
     }
 
-    if (decided) {
-      if (result === "win") wins++;
-      else if (result === "loss") losses++;
-      else draws++;
+    if (!decided || result === "pending") continue;
 
-      for (const code of self.heroesUsed) {
-        heroCount.set(code, (heroCount.get(code) ?? 0) + 1);
-      }
-      for (const mate of team.members) {
-        if (mate.memberId === memberId) continue;
-        const prev = mates.get(mate.memberId);
-        mates.set(mate.memberId, {
-          battleTag: mate.battleTag,
-          count: (prev?.count ?? 0) + 1,
-        });
-      }
+    if (recentForm.length < RECENT_FORM_MAX) {
+      recentForm.push({ matchId: m.id, result });
+    }
+    if (result === "win") wins++;
+    else if (result === "loss") losses++;
+    else draws++;
+
+    const won = result === "win";
+    for (const code of self.heroesUsed) {
+      const hs = heroStats.get(code) ?? { code, games: 0, wins: 0 };
+      hs.games++;
+      if (won) hs.wins++;
+      heroStats.set(code, hs);
+    }
+    for (const mate of team.members) {
+      if (mate.memberId === memberId) continue;
+      const ms = mates.get(mate.memberId) ?? {
+        memberId: mate.memberId,
+        battleTag: mate.battleTag,
+        games: 0,
+        wins: 0,
+      };
+      ms.games++;
+      if (won) ms.wins++;
+      mates.set(mate.memberId, ms);
     }
   }
 
   const decidedGames = wins + losses;
-  const topHeroes = [...heroCount.entries()].sort((a, b) => b[1] - a[1]);
+  const topHeroes = [...heroStats.values()].sort((a, b) => b.games - a.games);
 
   return {
     games: wins + losses + draws,
@@ -114,13 +156,11 @@ export function computePersonalStats(
     losses,
     draws,
     winRate: decidedGames ? Math.round((wins / decidedGames) * 100) : null,
-    mainHero: topHeroes[0]?.[0] ?? null,
+    mainHero: topHeroes[0]?.code ?? null,
     recentHero,
-    topHeroes: topHeroes.slice(0, 5),
-    topMates: [...mates.entries()]
-      .map(([memberId, v]) => ({ memberId, ...v }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5),
+    recentForm,
+    topHeroes: topHeroes.slice(0, 8),
+    topMates: [...mates.values()].sort((a, b) => b.games - a.games).slice(0, 6),
     matches: personalMatches,
   };
 }

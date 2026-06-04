@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HERO_BY_CODE } from "@/constants/heroes";
 import { MAP_BY_CODE } from "@/constants/maps";
 import type { MatchTeamView, MatchView } from "@/lib/matches";
+import type { MemberProfile } from "@/lib/member-profile";
 import { computePersonalStats } from "@/lib/personal-stats";
 import { cn } from "@/lib/utils";
 import { saveResult } from "../match/actions";
@@ -51,7 +52,13 @@ const timeFmt = new Intl.DateTimeFormat("ko-KR", {
   minute: "2-digit",
 });
 
-export function StatsClient({ matches }: { matches: MatchView[] }) {
+export function StatsClient({
+  matches,
+  profiles,
+}: {
+  matches: MatchView[];
+  profiles?: Record<string, MemberProfile>;
+}) {
   if (matches.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center text-sm text-ink-subtle">
@@ -74,7 +81,7 @@ export function StatsClient({ matches }: { matches: MatchView[] }) {
         <ChannelTab matches={matches} />
       </TabsContent>
       <TabsContent value="personal" className="pt-2">
-        <PersonalTab matches={matches} />
+        <PersonalTab matches={matches} profiles={profiles} />
       </TabsContent>
     </Tabs>
   );
@@ -125,7 +132,7 @@ function ChannelTab({ matches }: { matches: MatchView[] }) {
 function MatchCard({ match }: { match: MatchView }) {
   const resultPending = match.winnerSide === null && match.scoreA === null;
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-surface-1 px-4 py-3">
+    <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-surface-1 px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-ink-subtle">
@@ -192,8 +199,12 @@ function TeamColumn({
   return (
     <div
       className={cn(
-        "rounded-lg border px-3 py-2",
+        "rounded-lg border px-3 py-2 transition-colors",
         team.side === "A" ? "border-team-a/30" : "border-team-b/30",
+        isWinner &&
+          (team.side === "A"
+            ? "border-team-a/60 bg-team-a/5"
+            : "border-team-b/60 bg-team-b/5"),
       )}
     >
       <div className="mb-1 flex items-baseline justify-between">
@@ -229,7 +240,13 @@ function TeamColumn({
 }
 
 // ── 개인 전적 (SC-40) ───────────────────────────────────
-function PersonalTab({ matches }: { matches: MatchView[] }) {
+function PersonalTab({
+  matches,
+  profiles,
+}: {
+  matches: MatchView[];
+  profiles?: Record<string, MemberProfile>;
+}) {
   const members = useMemo(() => {
     const map = new Map<string, string>();
     for (const m of matches) {
@@ -296,7 +313,11 @@ function PersonalTab({ matches }: { matches: MatchView[] }) {
         </div>
       </div>
 
-      <PersonalRecordView stats={stats} />
+      <PersonalRecordView
+        stats={stats}
+        profile={profiles?.[memberId]}
+        memberId={memberId}
+      />
     </div>
   );
 }

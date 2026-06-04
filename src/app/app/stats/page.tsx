@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getMyChannel } from "@/lib/channel";
 import { loadMatches } from "@/lib/matches";
+import { loadMemberProfiles } from "@/lib/member-profile";
 import { StatsClient } from "./stats-client";
 
 export default async function StatsPage() {
@@ -25,7 +26,10 @@ export default async function StatsPage() {
           배정된 채널이 없습니다. 슈퍼관리자에게 문의하세요.
         </p>
       ) : (
-        <StatsClient matches={await loadMatches(channel.id)} />
+        <StatsClient
+          matches={await loadMatches(channel.id)}
+          profiles={await loadMemberProfiles(channel.id)}
+        />
       )}
     </main>
   );
