@@ -85,19 +85,19 @@ export function RecordSearch() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* 뒤로가기 — 다른 페이지와 동일한 텍스트 링크 패턴 */}
+      {showBack && (
+        <button
+          type="button"
+          onClick={goBack}
+          className="self-start text-sm text-ink-subtle transition-colors hover:text-foreground"
+        >
+          ← 뒤로
+        </button>
+      )}
+
       {/* 상시 검색바 */}
       <form onSubmit={runSearch} className="flex gap-2">
-        {showBack && (
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            onClick={goBack}
-            aria-label="뒤로"
-          >
-            ←
-          </Button>
-        )}
         <Input
           placeholder="배틀태그 또는 디스코드 닉네임"
           value={query}

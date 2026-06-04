@@ -88,7 +88,7 @@ function MatchItem({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <span
             className={cn(
-              "flex h-6 w-7 shrink-0 items-center justify-center rounded-md text-xs font-bold",
+              "flex h-6 min-w-7 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-1.5 text-xs font-bold",
               meta.chip,
             )}
           >
