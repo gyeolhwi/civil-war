@@ -1,17 +1,20 @@
 /** 오버워치 역할 (5v5: 1탱-2딜-2힐) */
 export type Role = "tank" | "dps" | "support";
 
-/** 서브 유형 9종 (docs/requirements.md §6.2) */
-export type SubRole =
-  | "brawl_tank"
-  | "dive_tank"
-  | "poke_tank"
-  | "main_dps"
-  | "playmaker_dps"
-  | "utility_dps"
-  | "main_support"
-  | "utility_support"
-  | "damage_support";
+/** 조합 성향 — 팀 응집(코히전) 판정용. 전 역할 공통 (docs/discussion/hero-classification.md) */
+export type Comp = "dive" | "brawl" | "poke";
+
+/** 역할 내 기능 — within-role 판정용. 탱커는 없음(comp가 곧 기능) */
+export type HeroFunc =
+  // 공격(딜)
+  | "hitscan"
+  | "flanker"
+  | "projectile"
+  | "sub"
+  // 지원(힐)
+  | "main_heal"
+  | "off_heal"
+  | "damage";
 
 /** 티어 8종 (docs/requirements.md §7.1) */
 export type Tier =
@@ -48,10 +51,10 @@ export interface Hero {
   code: string;
   nameKo: string;
   role: Role;
-  /** 카탈로그상 가능한 서브유형 (중복 영웅은 복수) */
-  subRoles: SubRole[];
-  /** 점수·조합 계산에 쓰는 단일 정규화 서브유형 (§6.3) */
-  normalizedSubRole: SubRole;
+  /** 조합 성향 (1~2개). 팀 응집 판정에 사용 */
+  comp: Comp[];
+  /** 역할 내 기능. 탱커는 빈 배열 */
+  func: HeroFunc[];
   image: string;
   isActive: boolean;
 }

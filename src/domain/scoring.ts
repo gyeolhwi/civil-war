@@ -1,4 +1,4 @@
-import type { Role, SubRole } from "@/domain/types";
+import type { Comp, HeroFunc, Role } from "@/domain/types";
 
 /**
  * 점수·조합 패널티 도메인 로직 (docs/requirements.md §7·§8)
@@ -25,82 +25,78 @@ export function individualScore(
   return Math.round(ratingScore * PREFERENCE_WEIGHT[kind]);
 }
 
-/** 조합 패널티 수치 (§8.1) */
+/**
+ * 조합 패널티 수치 (튜닝 대상).
+ * 분류 모델: docs/discussion/hero-classification.md (comp 응집 + func within-role)
+ */
 export const COMBO_PENALTY = {
-  noMainDps: 300,
-  noMainSupport: 500,
-  dpsSameType: 150,
+  /** 딜러 중 안정 딜(히트스캔/투사체) 앵커 0명 */
+  noAnchorDps: 300,
+  /** 메인힐 0명 */
+  noMainHeal: 500,
+  /** 힐러 2명 모두 공격힐 */
   bothDamageSupport: 400,
-  bothUtilitySupport: 250,
-  tankDpsMismatch: 200,
+  /** 힐러 2명 모두 보조힐 */
+  bothOffHeal: 250,
+  /** 탱 컨셉(comp)에 안 맞는 딜·힐 멤버 1명당 */
+  compMismatch: 150,
 } as const;
 
 /** 한 팀원의 조합 판정용 정보 */
 export interface TeamSlot {
   assignedRole: Role;
-  /** 이 멤버가 선호 영웅으로 보유한 서브유형 집합 (§8.2) */
-  ownedSubRoles: SubRole[];
+  /** 배정 역할 선호 영웅으로 커버하는 조합 성향 (없으면 빈 배열 = 판정 면제) */
+  comps: Comp[];
+  /** 배정 역할 선호 영웅의 기능 집합 */
+  funcs: HeroFunc[];
 }
 
 /**
- * 팀 조합 패널티 합계 (양수 = 총 차감액).
- * 멤버의 선호 영웅 서브유형 집합을 기준으로 판정 (§8.2).
+ * 팀 조합 패널티 합계 (양수 = 총 차감액). 감점만, 시너지 가점 없음.
+ * - within-role(func): 딜 앵커·메인힐 부재, 힐러 편중
+ * - 응집(comp): 탱커가 팀 컨셉을 정의 → 안 맞는 딜·힐 멤버마다 감점
+ *   (기존 "탱-딜 불일치"·"딜러 동일유형"을 이 한 틀로 흡수)
  */
 export function comboPenalty(team: TeamSlot[]): number {
   const dps = team.filter((s) => s.assignedRole === "dps");
   const support = team.filter((s) => s.assignedRole === "support");
   const tank = team.find((s) => s.assignedRole === "tank");
 
-  const owned = (slots: TeamSlot[]) =>
-    new Set(slots.flatMap((s) => s.ownedSubRoles));
-
   let penalty = 0;
 
-  const dpsTypes = owned(dps);
-  const supportTypes = owned(support);
-
-  // 메인딜 0명
-  if (!dpsTypes.has("main_dps")) penalty += COMBO_PENALTY.noMainDps;
-  // 메인힐 0명
-  if (!supportTypes.has("main_support")) penalty += COMBO_PENALTY.noMainSupport;
-
-  // 딜러 2명이 같은 유형만 보유 (각자 단일 유형 & 동일)
-  if (dps.length === 2) {
-    const a = new Set(dps[0].ownedSubRoles);
-    const b = new Set(dps[1].ownedSubRoles);
-    const allSame = a.size === 1 && b.size === 1 && [...a][0] === [...b][0];
-    if (allSame) penalty += COMBO_PENALTY.dpsSameType;
+  // 딜 앵커 부재: 딜러 기능 중 히트스캔/투사체(안정 딜)가 하나도 없음
+  const dpsFuncs = new Set(dps.flatMap((s) => s.funcs));
+  if (
+    dpsFuncs.size > 0 &&
+    !dpsFuncs.has("hitscan") &&
+    !dpsFuncs.has("projectile")
+  ) {
+    penalty += COMBO_PENALTY.noAnchorDps;
   }
 
-  // 힐러 2명이 모두 damage_support / 모두 utility_support
+  // 메인힐 부재
+  const supportFuncs = new Set(support.flatMap((s) => s.funcs));
+  if (supportFuncs.size > 0 && !supportFuncs.has("main_heal")) {
+    penalty += COMBO_PENALTY.noMainHeal;
+  }
+
+  // 힐러 2명이 모두 공격힐 / 모두 보조힐
   if (support.length === 2) {
-    const bothOnly = (sub: SubRole) =>
-      support.every(
-        (s) => s.ownedSubRoles.length === 1 && s.ownedSubRoles[0] === sub,
-      );
-    if (bothOnly("damage_support")) penalty += COMBO_PENALTY.bothDamageSupport;
-    else if (bothOnly("utility_support"))
-      penalty += COMBO_PENALTY.bothUtilitySupport;
+    const bothOnly = (f: HeroFunc) =>
+      support.every((s) => s.funcs.length > 0 && s.funcs.every((x) => x === f));
+    if (bothOnly("damage")) penalty += COMBO_PENALTY.bothDamageSupport;
+    else if (bothOnly("off_heal")) penalty += COMBO_PENALTY.bothOffHeal;
   }
 
-  // 탱-딜 방향성 불일치 (§8.4)
-  if (tank) {
-    const tankSub = tank.ownedSubRoles[0];
-    const hasPlaymaker = dpsTypes.has("playmaker_dps");
-    const allPlaymaker =
-      dps.length === 2 &&
-      dps.every(
-        (s) =>
-          s.ownedSubRoles.length === 1 &&
-          s.ownedSubRoles[0] === "playmaker_dps",
-      );
-    // dive_tank인데 변수딜 0명
-    if (tankSub === "dive_tank" && !hasPlaymaker)
-      penalty += COMBO_PENALTY.tankDpsMismatch;
-    // poke_tank인데 딜러 둘 다 변수딜
-    else if (tankSub === "poke_tank" && allPlaymaker)
-      penalty += COMBO_PENALTY.tankDpsMismatch;
-    // brawl_tank은 면제
+  // 조합 응집: 탱커 comp가 팀 컨셉 → 딜·힐이 그 comp에 못 맞으면 멤버당 감점
+  const tankComps = new Set(tank?.comps ?? []);
+  if (tankComps.size > 0) {
+    for (const s of team) {
+      if (s.assignedRole === "tank") continue;
+      if (s.comps.length === 0) continue; // 보유 영웅 없음 → 면제(오패널티 방지)
+      if (!s.comps.some((c) => tankComps.has(c)))
+        penalty += COMBO_PENALTY.compMismatch;
+    }
   }
 
   return penalty;

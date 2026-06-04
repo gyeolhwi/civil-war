@@ -6,7 +6,7 @@ import {
   type PreferenceKind,
   teamScore,
 } from "@/domain/scoring";
-import type { Role, SubRole } from "@/domain/types";
+import type { Comp, HeroFunc, Role } from "@/domain/types";
 
 /**
  * 자동 밸런스 팀 빌딩 (docs/workflow.md [5-A], requirements §7·§8)
@@ -34,7 +34,9 @@ export interface AssignedMember {
   role: Role;
   preferenceKind: PreferenceKind;
   individualScore: number;
-  ownedSubRoles: SubRole[];
+  /** 배정 역할 선호 영웅으로 커버하는 조합 성향·기능 */
+  comps: Comp[];
+  funcs: HeroFunc[];
 }
 
 export interface BuiltTeam {
@@ -60,14 +62,20 @@ function preferenceKind(p: Participant, role: Role): PreferenceKind {
   return "hasRating";
 }
 
-/** 배정 역할 기준, 멤버가 선호 영웅으로 보유한 정규화 서브유형 집합 (§8.2) */
-function ownedSubRolesFor(p: Participant, role: Role): SubRole[] {
-  const subs = new Set<SubRole>();
+/** 배정 역할 기준, 멤버가 선호 영웅으로 보유한 조합 성향·기능 집합 */
+function ownedFor(
+  p: Participant,
+  role: Role,
+): { comps: Comp[]; funcs: HeroFunc[] } {
+  const comps = new Set<Comp>();
+  const funcs = new Set<HeroFunc>();
   for (const code of p.heroCodes) {
     const hero = HERO_BY_CODE[code];
-    if (hero?.role === role) subs.add(hero.normalizedSubRole);
+    if (hero?.role !== role) continue;
+    for (const c of hero.comp) comps.add(c);
+    for (const f of hero.func) funcs.add(f);
   }
-  return [...subs];
+  return { comps: [...comps], funcs: [...funcs] };
 }
 
 /** 멤버 보유 역할 중 최고 환산 점수 (티어 없는 역할 배정 시 fallback) */
@@ -81,12 +89,14 @@ function toSlot(p: Participant, role: Role): AssignedMember {
   // (안 하는) 포지션도 배정 가능 → 그 경우 최고 티어를 기준으로 환산.
   const ratingScore = p.ratings[role] ?? bestRating(p);
   const kind = preferenceKind(p, role);
+  const owned = ownedFor(p, role);
   return {
     participant: p,
     role,
     preferenceKind: kind,
     individualScore: individualScore(ratingScore, kind),
-    ownedSubRoles: ownedSubRolesFor(p, role),
+    comps: owned.comps,
+    funcs: owned.funcs,
   };
 }
 
@@ -94,7 +104,8 @@ function assemble(members: AssignedMember[]): BuiltTeam {
   const penalty = comboPenalty(
     members.map((m) => ({
       assignedRole: m.role,
-      ownedSubRoles: m.ownedSubRoles,
+      comps: m.comps,
+      funcs: m.funcs,
     })),
   );
   const bonus = 0; // 조합 보너스는 v1 미사용 (teams.combo_bonus default 0)

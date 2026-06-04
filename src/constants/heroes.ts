@@ -1,4 +1,4 @@
-import type { Hero, Role, SubRole } from "@/domain/types";
+import type { Comp, Hero, HeroFunc, Role } from "@/domain/types";
 
 export const ROLE_LABEL_KO: Record<Role, string> = {
   tank: "돌격",
@@ -6,117 +6,104 @@ export const ROLE_LABEL_KO: Record<Role, string> = {
   support: "지원",
 };
 
-export const SUBROLE_LABEL_KO: Record<SubRole, string> = {
-  brawl_tank: "브롤",
-  dive_tank: "다이브",
-  poke_tank: "포킹",
-  main_dps: "메인딜",
-  playmaker_dps: "변수딜",
-  utility_dps: "유틸딜",
-  main_support: "메인힐",
-  utility_support: "유틸힐",
-  damage_support: "공격힐",
+/** 조합 성향 라벨 */
+export const COMP_LABEL_KO: Record<Comp, string> = {
+  dive: "다이브",
+  brawl: "브롤",
+  poke: "포킹",
 };
 
-/**
- * 서브유형 정규화 우선순위 (docs/requirements.md §6.3)
- * 큰 조합 패널티를 회피하는 쪽이 우선.
- */
-export const SUBROLE_PRIORITY: Record<Role, SubRole[]> = {
-  tank: ["brawl_tank", "poke_tank", "dive_tank"],
-  dps: ["main_dps", "playmaker_dps", "utility_dps"],
-  support: ["main_support", "utility_support", "damage_support"],
+/** 역할 내 기능 라벨 */
+export const FUNC_LABEL_KO: Record<HeroFunc, string> = {
+  hitscan: "히트스캔",
+  flanker: "플랭커",
+  projectile: "투사체",
+  sub: "유틸딜",
+  main_heal: "메인힐",
+  off_heal: "보조힐",
+  damage: "공격힐",
 };
-
-/** subRoles 배열에서 우선순위에 따라 단일 정규화 서브유형을 고른다. */
-export function normalizeSubRole(role: Role, subRoles: SubRole[]): SubRole {
-  for (const candidate of SUBROLE_PRIORITY[role]) {
-    if (subRoles.includes(candidate)) return candidate;
-  }
-  return subRoles[0];
-}
 
 function hero(
   code: string,
   nameKo: string,
   role: Role,
-  subRoles: SubRole[],
+  comp: Comp[],
+  func: HeroFunc[] = [],
 ): Hero {
   return {
     code,
     nameKo,
     role,
-    subRoles,
-    normalizedSubRole: normalizeSubRole(role, subRoles),
+    comp,
+    func,
     image: `/images/heroes/${code}.png`,
     isActive: true,
   };
 }
 
 /**
- * 영웅 마스터 (v1 코드 상수 → 추후 DB 이관, docs/requirements.md §5.4·§6)
- * 중복 표기 영웅은 subRoles 복수 → normalizedSubRole로 단일화.
+ * 영웅 마스터 (v1 코드 상수).
+ * comp(조합 성향) + func(역할 기능). 탱커는 func 없음(comp가 곧 기능).
+ * 분류 근거·검수 이력: docs/discussion/hero-classification.md
  */
 export const HEROES: Hero[] = [
   // ── 돌격(Tank) ──
-  hero("rein", "라인하르트", "tank", ["brawl_tank"]),
-  hero("zarya", "자리야", "tank", ["brawl_tank"]),
-  hero("junker_queen", "정커퀸", "tank", ["brawl_tank"]),
-  hero("ramattra", "라마트라", "tank", ["brawl_tank", "poke_tank"]),
-  hero("mauga", "마우가", "tank", ["brawl_tank"]),
-  hero("roadhog", "로드호그", "tank", ["brawl_tank"]),
-  hero("winston", "윈스턴", "tank", ["dive_tank"]),
-  hero("dva", "D.Va", "tank", ["dive_tank"]),
-  hero("doomfist", "둠피스트", "tank", ["dive_tank"]),
-  hero("wrecking_ball", "레킹볼", "tank", ["dive_tank"]),
-  hero("hazard", "해저드", "tank", ["dive_tank"]),
-  hero("sigma", "시그마", "tank", ["poke_tank"]),
-  hero("orisa", "오리사", "tank", ["poke_tank"]),
-  hero("domina", "도미나", "tank", ["poke_tank"]),
+  hero("rein", "라인하르트", "tank", ["brawl"]),
+  hero("zarya", "자리야", "tank", ["brawl"]),
+  hero("junker_queen", "정커퀸", "tank", ["brawl"]),
+  hero("ramattra", "라마트라", "tank", ["brawl", "poke"]),
+  hero("mauga", "마우가", "tank", ["brawl"]),
+  hero("roadhog", "로드호그", "tank", ["brawl"]),
+  hero("winston", "윈스턴", "tank", ["dive"]),
+  hero("dva", "D.Va", "tank", ["dive"]),
+  hero("doomfist", "둠피스트", "tank", ["dive"]),
+  hero("wrecking_ball", "레킹볼", "tank", ["dive"]),
+  hero("hazard", "해저드", "tank", ["dive"]),
+  hero("sigma", "시그마", "tank", ["poke"]),
+  hero("orisa", "오리사", "tank", ["poke", "brawl"]),
+  hero("domina", "도미나", "tank", ["poke", "brawl"]),
 
   // ── 공격(Damage) ──
-  hero("soldier76", "솔저: 76", "dps", ["main_dps"]),
-  hero("cassidy", "캐서디", "dps", ["main_dps"]),
-  hero("ashe", "애쉬", "dps", ["main_dps"]),
-  hero("sojourn", "소전", "dps", ["main_dps"]),
-  hero("bastion", "바스티온", "dps", ["main_dps"]),
-  hero("hanzo", "한조", "dps", ["main_dps"]),
-  hero("widowmaker", "위도우메이커", "dps", ["main_dps"]),
-  hero("freya", "프레야", "dps", ["main_dps"]),
-  hero("emre", "엠레", "dps", ["main_dps"]),
-  hero("tracer", "트레이서", "dps", ["playmaker_dps"]),
-  hero("genji", "겐지", "dps", ["playmaker_dps"]),
-  hero("sombra", "솜브라", "dps", ["playmaker_dps", "utility_dps"]),
-  hero("reaper", "리퍼", "dps", ["playmaker_dps"]),
-  hero("echo", "에코", "dps", ["playmaker_dps"]),
-  hero("pharah", "파라", "dps", ["playmaker_dps"]),
-  hero("venture", "벤처", "dps", ["playmaker_dps"]),
-  hero("sierra", "시에라", "dps", ["playmaker_dps"]),
-  hero("anran", "안란", "dps", ["playmaker_dps"]),
-  hero("vendetta", "벤데타", "dps", ["playmaker_dps"]),
-  hero("mei", "메이", "dps", ["utility_dps"]),
-  hero("symmetra", "시메트라", "dps", ["utility_dps"]),
-  hero("torbjorn", "토르비욘", "dps", ["utility_dps"]),
-  hero("junkrat", "정크랫", "dps", ["utility_dps"]),
+  hero("soldier76", "솔저: 76", "dps", ["poke", "brawl"], ["hitscan"]),
+  hero("cassidy", "캐서디", "dps", ["brawl"], ["hitscan"]),
+  hero("ashe", "애쉬", "dps", ["poke"], ["hitscan"]),
+  hero("sojourn", "소전", "dps", ["poke"], ["hitscan"]),
+  hero("bastion", "바스티온", "dps", ["poke", "brawl"], ["hitscan"]),
+  hero("hanzo", "한조", "dps", ["poke"], ["projectile"]),
+  hero("widowmaker", "위도우메이커", "dps", ["poke"], ["hitscan"]),
+  hero("freya", "프레야", "dps", ["dive"], ["projectile"]),
+  hero("emre", "엠레", "dps", ["poke"], ["hitscan"]),
+  hero("tracer", "트레이서", "dps", ["dive"], ["flanker"]),
+  hero("genji", "겐지", "dps", ["dive"], ["flanker"]),
+  hero("sombra", "솜브라", "dps", ["dive"], ["flanker"]),
+  hero("reaper", "리퍼", "dps", ["brawl"], ["flanker"]),
+  hero("echo", "에코", "dps", ["dive"], ["projectile"]),
+  hero("pharah", "파라", "dps", ["poke"], ["projectile"]),
+  hero("venture", "벤처", "dps", ["dive", "brawl"], ["projectile"]),
+  hero("sierra", "시에라", "dps", ["dive"], ["flanker", "hitscan"]),
+  hero("anran", "안란", "dps", ["poke"], ["flanker", "sub"]),
+  hero("vendetta", "벤데타", "dps", ["dive"], ["sub"]),
+  hero("mei", "메이", "dps", ["brawl"], ["sub"]),
+  hero("symmetra", "시메트라", "dps", ["poke", "brawl"], ["sub"]),
+  hero("torbjorn", "토르비욘", "dps", ["brawl", "poke"], ["sub"]),
+  hero("junkrat", "정크랫", "dps", ["brawl"], ["sub"]),
 
   // ── 지원(Support) ──
-  hero("ana", "아나", "support", ["main_support", "damage_support"]),
-  hero("baptiste", "바티스트", "support", ["main_support", "damage_support"]),
-  hero("moira", "모이라", "support", ["main_support"]),
-  hero("kiriko", "키리코", "support", ["main_support", "utility_support"]),
-  hero("juno", "주노", "support", ["main_support"]),
-  hero("lifeweaver", "라이프위버", "support", [
-    "main_support",
-    "utility_support",
-  ]),
-  hero("lucio", "루시우", "support", ["utility_support"]),
-  hero("mercy", "메르시", "support", ["utility_support"]),
-  hero("brigitte", "브리기테", "support", ["utility_support"]),
-  hero("mizuki", "미즈키", "support", ["damage_support", "utility_support"]),
-  hero("wuyang", "우양", "support", ["damage_support", "utility_support"]),
-  hero("jetpack_cat", "제트팩 캣", "support", ["utility_support"]),
-  hero("zenyatta", "젠야타", "support", ["damage_support"]),
-  hero("illari", "일리아리", "support", ["damage_support"]),
+  hero("ana", "아나", "support", ["poke"], ["main_heal"]),
+  hero("baptiste", "바티스트", "support", ["poke", "brawl"], ["main_heal"]),
+  hero("moira", "모이라", "support", ["brawl", "dive"], ["main_heal"]),
+  hero("kiriko", "키리코", "support", ["dive", "brawl"], ["main_heal"]),
+  hero("juno", "주노", "support", ["dive", "poke"], ["main_heal"]),
+  hero("lifeweaver", "라이프위버", "support", ["brawl"], ["main_heal"]),
+  hero("lucio", "루시우", "support", ["dive", "brawl"], ["off_heal"]),
+  hero("mercy", "메르시", "support", ["dive"], ["off_heal"]),
+  hero("brigitte", "브리기테", "support", ["brawl"], ["off_heal"]),
+  hero("mizuki", "미즈키", "support", ["brawl"], ["off_heal"]),
+  hero("wuyang", "우양", "support", ["poke"], ["damage"]),
+  hero("jetpack_cat", "제트팩 캣", "support", ["dive"], ["off_heal"]),
+  hero("zenyatta", "젠야타", "support", ["poke"], ["damage"]),
+  hero("illari", "일리아리", "support", ["poke"], ["damage"]),
 ];
 
 export const HERO_BY_CODE: Record<string, Hero> = Object.fromEntries(
