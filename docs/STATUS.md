@@ -6,33 +6,33 @@
 마지막 갱신: 2026-06-05
 
 > **현재 한 줄 요약:** 핵심 기능 완료 + 배포·실사용 중. 이번 세션에 **op.gg식 전적/프로필 개편 · 영웅 다중등록 · 공개검색(/record) · 밸런스 리워크**를 작업함.
-> 코드는 빌드·테스트(32/32) 통과 상태이나 **미커밋·미푸시·미배포·로컬 미검증**.
+> 코드는 빌드·테스트(32/32) 통과. **커밋·`dev` push 완료(2026-06-05) → Vercel Preview 배포 중.** main 프로덕션 머지는 Preview 확인 후 대기.
 
 ---
 
 ## 🔖 이어서 작업 (중단점 2026-06-05) — 다음 세션은 여기부터
 
 ### 지금 상태
-- **dev에 미푸시 커밋 5개** (op.gg 개편·다중영웅·공개검색). `origin/dev`보다 5 앞섬.
-- **미커밋 작업 2덩어리** (워킹트리):
-  - **A. FIX** — `/record` 뒤로가기 버튼 통일 + 전적 "미입력" 칩 깨짐 수정 (`record-search.tsx`, `match-history.tsx`)
-  - **B. FEAT 밸런스 리워크** — 영웅 `comp`/`func` 분류 + 조합 감점 재설계 (`domain/types·scoring·team-builder.ts`, `constants/heroes.ts`, `domain/scoring.test.ts`, `docs/discussion/hero-classification.md`)
-- 검증: tsc·biome·테스트 32/32·빌드 전부 ✅. **단 브라우저 로컬 검증은 안 함.**
+- **`dev` push 완료** — `origin/dev`까지 `cce507f`. 8커밋 반영, Vercel Preview 자동 배포.
+- 워킹트리 깨끗. 유일한 untracked: `docs/discussion/balancing-data-review.md`(2번 DB이관 토의 문서, 의도적으로 미커밋).
+- 검증: tsc clean·테스트 32/32·빌드 ✅. (biome 20 errors는 전부 스캐폴드 스타일 nit `useImportType`·`noNonNullAssertion`, 회귀 아님·배포 무관.) **브라우저 로컬 검증은 생략 — Preview에서 실사용 검증하기로.**
 
 ### 이어서 할 일 (순서대로)
-- [ ] 1. **미커밋 커밋** (`/commit-auto`) — A는 `FIX`, B는 `FEAT(balance)`로 분리. `balancing-data-review.md`는 무관하니 제외.
-- [ ] 2. **로컬 확인** (`pnpm dev`): `/record`(검색·프로필·전적 펼침), `/app/stats` op.gg 화면, 내전 자동편성에서 밸런스 감점이 의도대로 먹는지
-- [ ] 3. **`dev` push → Vercel Preview** 배포 확인
-- [ ] 4. 이상 없으면 **`main` 머지 → 프로덕션 배포**
+- [x] 1. 미커밋 커밋 — A `FIX(record)` `e09e069`, B `FEAT(balance)` `87c1d0a`로 분리 완료.
+- [~] 2. 로컬 확인 — 생략, Preview 실배포에서 확인하기로 결정.
+- [x] 3. **`dev` push → Vercel Preview** — push 완료, Preview 배포 진행.
+- [ ] 4. **Preview 확인**: `/record`(검색·프로필·전적 펼침), `/app/stats` op.gg 화면, 내전 자동편성 밸런스 감점이 의도대로 먹는지.
+- [ ] 5. 이상 없으면 **`main` 머지 → 프로덕션 배포**.
 
-### 푸시/배포 전 확인
+### 배포 전 확인 (사용자가 Vercel 대시보드에서)
 - [ ] Vercel **Preview 환경**에 `NEXT_PUBLIC_SUPABASE_*` 들어갔는지 (예전 Preview 500 원인 — 공개 키 3종을 All Environments로)
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` 프로덕션·프리뷰 등록 ✅ (이번 세션에 완료, 값이 service_role인지만 재확인)
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` 프로덕션·프리뷰 등록 ✅ (이전 세션 완료, 값이 service_role인지만 재확인)
 
-### 다음 작업 후보 (선택)
-- 밸런스 감점 수치 튜닝 (`COMBO_PENALTY.compMismatch=150` 등, 코드 상수)
-- `0003` 마이그레이션으로 deprecated `team_members.hero_used` 드롭 (순수 정리)
-- `hero-classification.md` ⚠️ 항목 재검수 / v2 백로그(디스코드 봇 → Edge Function)
+### 다음 작업 — 2번 (밸런싱 DB 이관 토의)
+> 전제: 어제 밸런스 리워크(comp/func 분류·조합 감점 재설계, `87c1d0a`) 기반으로 `balancing-data-review.md`를 **전체 검토 → 이관 범위·스키마 확정**한 뒤 마이그레이션 진행.
+- `balancing-data-review.md` §2 A~E 검토 + §4 결론 채우기 → 이관 범위/스키마 결정
+- (이관 후속) `0003` 마이그레이션으로 deprecated `team_members.hero_used` 드롭
+- 밸런스 감점 수치 튜닝(`COMBO_PENALTY` 등 코드 상수) / `hero-classification.md` ⚠️ 항목 재검수
 
 ---
 
