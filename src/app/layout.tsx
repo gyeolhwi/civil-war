@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
+import { RefDataProvider } from "@/components/ref-data-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { getRefData } from "@/lib/ref-data";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,11 +24,12 @@ export const metadata: Metadata = {
 // Supabase(서울 ap-northeast-2)와 함수 리전을 맞춰 서버↔DB 왕복 지연 최소화.
 export const preferredRegion = "icn1";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const refData = await getRefData();
   return (
     <html
       lang="ko"
@@ -36,7 +39,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <NextTopLoader color="#5e6ad2" height={3} showSpinner={false} />
-        {children}
+        <RefDataProvider value={refData}>{children}</RefDataProvider>
         <Toaster theme="dark" />
       </body>
     </html>

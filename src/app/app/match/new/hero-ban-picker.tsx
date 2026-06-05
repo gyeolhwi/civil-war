@@ -1,14 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRefData } from "@/components/ref-data-provider";
 import { Button } from "@/components/ui/button";
 import { HeroImage, RoleIcon } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
-import {
-  HERO_BY_CODE,
-  HEROES_BY_ROLE,
-  ROLE_LABEL_KO,
-} from "@/constants/heroes";
+import { ROLE_LABEL_KO } from "@/constants/heroes";
 import type { Role } from "@/domain/types";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +36,7 @@ export function HeroBanPicker({
   teamA?: BanTeam;
   teamB?: BanTeam;
 }) {
+  const { heroByCode, heroesByRole } = useRefData();
   const [target, setTarget] = useState<"A" | "B">("A");
   const [query, setQuery] = useState("");
   const q = query.trim();
@@ -71,7 +69,7 @@ export function HeroBanPicker({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {(["A", "B"] as const).map((side) => {
           const code = side === "A" ? banA : banB;
-          const hero = code ? HERO_BY_CODE[code] : null;
+          const hero = code ? heroByCode[code] : null;
           const active = target === side;
           const team = side === "A" ? teamA : teamB;
           const isA = side === "A";
@@ -183,7 +181,7 @@ export function HeroBanPicker({
       {/* 영웅 카드 그리드 (역할별, 큰 초상) */}
       <div className="flex flex-col gap-4 rounded-xl border border-border/60 p-3">
         {ROLES.map((role) => {
-          const list = HEROES_BY_ROLE[role].filter(
+          const list = heroesByRole[role].filter(
             (h) => !q || h.nameKo.includes(q),
           );
           if (list.length === 0) return null;

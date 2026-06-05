@@ -1,5 +1,6 @@
 import type { Participant } from "@/domain/team-builder";
 import type { Role } from "@/domain/types";
+import { getRefData } from "@/lib/ref-data";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -10,6 +11,7 @@ export async function loadParticipants(
   channelId: string,
 ): Promise<Participant[]> {
   const supabase = await createClient();
+  const { heroByCode } = await getRefData();
 
   const { data: links } = await supabase
     .from("channel_members")
@@ -65,6 +67,10 @@ export async function loadParticipants(
       heroCodes: (heroes ?? [])
         .filter((h) => h.member_id === link.member_id)
         .map((h) => h.hero_code as string),
+      heroes: (heroes ?? [])
+        .filter((h) => h.member_id === link.member_id)
+        .map((h) => heroByCode[h.hero_code as string])
+        .filter((h): h is NonNullable<typeof h> => h != null),
       mapCodes: (maps ?? [])
         .filter((mp) => mp.member_id === link.member_id)
         .map((mp) => mp.map_code as string),

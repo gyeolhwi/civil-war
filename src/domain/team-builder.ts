@@ -1,12 +1,11 @@
-import { HERO_BY_CODE, ROLE_ORDER } from "@/constants/heroes";
-import { MAPS } from "@/constants/maps";
+import { ROLE_ORDER } from "@/constants/heroes";
 import {
   comboPenalty,
   individualScore,
   type PreferenceKind,
   teamScore,
 } from "@/domain/scoring";
-import type { Comp, HeroFunc, Role } from "@/domain/types";
+import type { Comp, Hero, HeroFunc, Role } from "@/domain/types";
 
 /**
  * 자동 밸런스 팀 빌딩 (docs/workflow.md [5-A], requirements §7·§8)
@@ -26,6 +25,8 @@ export interface Participant {
   /** 티어가 있는 역할 → 환산 점수 (rating_score). 없는 역할은 키 없음 = 배정 불가 */
   ratings: Partial<Record<Role, number>>;
   heroCodes: string[];
+  /** 선호 영웅 코드를 마스터로 해석한 객체(서버 로드 시 주입). 조합 판정에 사용 */
+  heroes: Hero[];
   mapCodes: string[];
 }
 
@@ -69,9 +70,8 @@ function ownedFor(
 ): { comps: Comp[]; funcs: HeroFunc[] } {
   const comps = new Set<Comp>();
   const funcs = new Set<HeroFunc>();
-  for (const code of p.heroCodes) {
-    const hero = HERO_BY_CODE[code];
-    if (hero?.role !== role) continue;
+  for (const hero of p.heroes) {
+    if (hero.role !== role) continue;
     for (const c of hero.comp) comps.add(c);
     for (const f of hero.func) funcs.add(f);
   }
@@ -243,16 +243,17 @@ export interface MapSelection {
 /**
  * 맵 자동 선정 (workflow [8]): 참가자 선호 맵 합집합에서 무작위 1개.
  * 합집합이 비면 전체 활성 맵 풀에서 무작위 (SC-55).
+ * @param activeMapCodes 활성 맵 코드 풀 (마스터에서 isActive 필터해 주입)
  */
 export function selectMap(
   participants: Participant[],
+  activeMapCodes: string[],
   rng: () => number = Math.random,
 ): MapSelection {
   const union = [...new Set(participants.flatMap((p) => p.mapCodes))];
 
   if (union.length === 0) {
-    const pool = MAPS.filter((m) => m.isActive);
-    const mapCode = pool[Math.floor(rng() * pool.length)].code;
+    const mapCode = activeMapCodes[Math.floor(rng() * activeMapCodes.length)];
     return { mapCode, preferredBy: [], fromFallback: true };
   }
 

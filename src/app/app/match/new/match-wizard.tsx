@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { HeroMultiSelect } from "@/components/hero-multi-select";
+import { useRefData } from "@/components/ref-data-provider";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,8 +24,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SortSelect } from "@/components/ui/sort-select";
-import { HERO_BY_CODE, ROLE_LABEL_KO, ROLE_ORDER } from "@/constants/heroes";
-import { MAP_BY_CODE, MODE_LABEL_KO } from "@/constants/maps";
+import { ROLE_LABEL_KO, ROLE_ORDER } from "@/constants/heroes";
+import { MODE_LABEL_KO } from "@/constants/maps";
 import { buildDiscordText, type ShareTeam } from "@/domain/discord";
 import {
   currentTurn,
@@ -170,6 +171,8 @@ function toBanTeam(t: BuiltTeam, byId: Map<string, Participant>): BanTeam {
 
 export function MatchWizard({ participants }: { participants: Participant[] }) {
   const router = useRouter();
+  const { heroByCode, mapByCode, heroes, maps } = useRefData();
+  const activeMapCodes = maps.filter((m) => m.isActive).map((m) => m.code);
   const [pending, startTransition] = useTransition();
 
   const byId = useMemo(
@@ -213,8 +216,8 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
 
   // 워크플로우 진입 시 영웅·맵 이미지를 미리 로드 → 맵 추첨·밴 단계에서 즉시 표시
   useEffect(() => {
-    preloadGameImages();
-  }, []);
+    preloadGameImages(heroes, maps);
+  }, [heroes, maps]);
 
   function toggle(id: string) {
     setSelected((prev) =>
@@ -239,7 +242,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
   }
 
   function rollMap() {
-    setMapSel(selectMap(selectedParticipants));
+    setMapSel(selectMap(selectedParticipants, activeMapCodes));
     setMapNonce((n) => n + 1); // 매번 추첨 연출 재시작
   }
 
@@ -447,13 +450,19 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
 
   function copyShare() {
     if (!candidate) return;
-    const text = buildDiscordText({
-      teamA: shareTeam(candidate.teamA, "A팀"),
-      teamB: shareTeam(candidate.teamB, "B팀"),
-      mapCode: mapSel?.mapCode ?? null,
-      banA: banA || null,
-      banB: banB || null,
-    });
+    const text = buildDiscordText(
+      {
+        teamA: shareTeam(candidate.teamA, "A팀"),
+        teamB: shareTeam(candidate.teamB, "B팀"),
+        mapCode: mapSel?.mapCode ?? null,
+        banA: banA || null,
+        banB: banB || null,
+      },
+      {
+        heroName: (c) => heroByCode[c]?.nameKo,
+        mapName: (c) => mapByCode[c]?.nameKo,
+      },
+    );
     navigator.clipboard
       .writeText(text)
       .then(() => toast.success("디스코드용 텍스트를 복사했습니다"))
@@ -867,10 +876,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
                 {p.heroCodes.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-1">
                     {p.heroCodes.map((code) => (
-                      <span
-                        key={code}
-                        title={HERO_BY_CODE[code]?.nameKo ?? code}
-                      >
+                      <span key={code} title={heroByCode[code]?.nameKo ?? code}>
                         <HeroImage
                           code={code}
                           size={30}
@@ -987,7 +993,7 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
   }
 
   if (step === "review" && candidate) {
-    const map = mapSel ? MAP_BY_CODE[mapSel.mapCode] : null;
+    const map = mapSel ? mapByCode[mapSel.mapCode] : null;
     const diff = Math.abs(
       candidate.teamA.finalScore - candidate.teamB.finalScore,
     );
@@ -1290,8 +1296,9 @@ function MatchupTeam({
   banCode: string;
   byId: Map<string, Participant>;
 }) {
+  const { heroByCode } = useRefData();
   const isA = tone === "a";
-  const ban = banCode ? HERO_BY_CODE[banCode] : null;
+  const ban = banCode ? heroByCode[banCode] : null;
   return (
     <div
       className={cn(

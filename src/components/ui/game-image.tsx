@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { HERO_BY_CODE, HEROES, ROLE_LABEL_KO } from "@/constants/heroes";
-import { MAP_BY_CODE, MAPS, MODE_LABEL_KO } from "@/constants/maps";
+import { useRefData } from "@/components/ref-data-provider";
+import { ROLE_LABEL_KO } from "@/constants/heroes";
+import { MODE_LABEL_KO } from "@/constants/maps";
 import { TIER_LABEL_KO } from "@/constants/tiers";
-import type { GameMode, Role, Tier } from "@/domain/types";
+import type { GameMap, GameMode, Hero, Role, Tier } from "@/domain/types";
 import { cn } from "@/lib/utils";
 
 // 이미지가 작아(맵 ~250KB·영웅 ~40KB) next/image 최적화보다 일반 img + 프리로드가
@@ -26,14 +27,14 @@ const ROLE_BG: Record<Role, string> = {
  * 영웅·맵 이미지를 브라우저 캐시에 미리 로드. 워크플로우 진입 시 1회 호출하면
  * 맵 추첨·영웅 그리드 단계에서 즉시 표시된다. idle 시점에 실행.
  */
-export function preloadGameImages() {
+export function preloadGameImages(heroes: Hero[], maps: GameMap[]) {
   if (typeof window === "undefined") return;
   const warm = () => {
-    for (const h of HEROES) {
+    for (const h of heroes) {
       const img = new Image();
       img.src = h.image;
     }
-    for (const m of MAPS) {
+    for (const m of maps) {
       if (!m.isActive) continue;
       const img = new Image();
       img.src = m.image;
@@ -142,8 +143,9 @@ export function HeroImage({
   size?: number;
   className?: string;
 }) {
+  const { heroByCode } = useRefData();
   const [failed, setFailed] = useState(false);
-  const hero = HERO_BY_CODE[code];
+  const hero = heroByCode[code];
 
   if (failed || !hero) {
     return (
@@ -234,8 +236,9 @@ export function MapImage({
   /** true면 영역을 꽉 채움(object-cover, 배너용). 기본은 object-contain. */
   cover?: boolean;
 }) {
+  const { mapByCode } = useRefData();
   const [failed, setFailed] = useState(false);
-  const map = MAP_BY_CODE[code];
+  const map = mapByCode[code];
 
   if (failed || !map) {
     return (

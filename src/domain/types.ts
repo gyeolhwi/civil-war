@@ -66,3 +66,12 @@ export interface GameMap {
   image: string;
   isActive: boolean;
 }
+
+/** 영웅·맵 마스터 데이터 (DB 로드본). 서버 로더·클라 Context 공통 shape */
+export interface RefData {
+  heroes: Hero[];
+  maps: GameMap[];
+  heroByCode: Record<string, Hero>;
+  mapByCode: Record<string, GameMap>;
+  heroesByRole: Record<Role, Hero[]>;
+}

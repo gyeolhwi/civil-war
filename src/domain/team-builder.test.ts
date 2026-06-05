@@ -22,10 +22,14 @@ function full(
     secondaryRole: null,
     ratings: scores,
     heroCodes: [],
+    heroes: [],
     mapCodes: [],
     ...opts,
   };
 }
+
+/** selectMap fallback용 활성 맵 풀 (실제 마스터 코드 일부) */
+const MAP_POOL = ["busan", "ilios", "nepal", "kings_row"];
 
 function tenFull(): Participant[] {
   return Array.from({ length: 10 }, (_, i) =>
@@ -134,14 +138,14 @@ describe("selectMap", () => {
     const participants = tenFull();
     participants[0].mapCodes = ["busan"];
     participants[1].mapCodes = ["busan", "ilios"];
-    const sel = selectMap(participants, () => 0);
+    const sel = selectMap(participants, MAP_POOL, () => 0);
     expect(["busan", "ilios"]).toContain(sel.mapCode);
     expect(sel.fromFallback).toBe(false);
     expect(sel.preferredBy.length).toBeGreaterThan(0);
   });
 
   it("아무도 선호 맵이 없으면 전체 풀에서 fallback (SC-55)", () => {
-    const sel = selectMap(tenFull(), () => 0);
+    const sel = selectMap(tenFull(), MAP_POOL, () => 0);
     expect(sel.fromFallback).toBe(true);
     expect(sel.mapCode).toBeTruthy();
     expect(sel.preferredBy).toHaveLength(0);
@@ -151,7 +155,7 @@ describe("selectMap", () => {
     const participants = tenFull();
     participants[0].mapCodes = ["busan"];
     participants[3].mapCodes = ["busan"];
-    const sel = selectMap(participants, () => 0); // 합집합 ["busan"] → busan
+    const sel = selectMap(participants, MAP_POOL, () => 0); // 합집합 ["busan"] → busan
     expect(sel.mapCode).toBe("busan");
     expect(sel.preferredBy.map((p) => p.id).sort()).toEqual(["m0", "m3"]);
   });

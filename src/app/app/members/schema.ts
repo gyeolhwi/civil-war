@@ -1,6 +1,4 @@
 import { z } from "zod";
-import { HERO_CODES } from "@/constants/heroes";
-import { MAPS } from "@/constants/maps";
 
 const ROLES = ["tank", "dps", "support"] as const;
 const TIERS = [
@@ -13,7 +11,6 @@ const TIERS = [
   "grandmaster",
   "champion",
 ] as const;
-const MAP_CODES = MAPS.map((m) => m.code) as [string, ...string[]];
 
 /** 역할 하나의 티어 입력. 입력 안 한 역할은 목록에서 제외 (SC-12). */
 const roleRatingSchema = z.object({
@@ -47,10 +44,12 @@ export const memberFormSchema = z.object({
       seen.add(r.role);
     }
   }),
+  // 영웅·맵 코드는 마스터(DB)로 이관됨. 피커가 유효 코드만 제공하므로
+  // 여기선 문자열 배열로 받고 코드 유효성은 마스터 정합성에 위임 (max 제약만 유지).
   heroCodes: z
-    .array(z.enum(HERO_CODES as [string, ...string[]]))
+    .array(z.string())
     .max(5, "선호 영웅은 최대 5개까지 선택할 수 있습니다"),
-  mapCodes: z.array(z.enum(MAP_CODES)),
+  mapCodes: z.array(z.string()),
 });
 
 export type MemberFormValues = z.infer<typeof memberFormSchema>;

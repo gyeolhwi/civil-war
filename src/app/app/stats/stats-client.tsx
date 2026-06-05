@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { HeroMultiSelect } from "@/components/hero-multi-select";
 import { PersonalRecordView } from "@/components/personal-record";
+import { useRefData } from "@/components/ref-data-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,8 +18,7 @@ import { HeroImage, ModeIcon, RoleIcon } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HERO_BY_CODE } from "@/constants/heroes";
-import { MAP_BY_CODE } from "@/constants/maps";
+import type { Hero } from "@/domain/types";
 import type { MatchTeamView, MatchView } from "@/lib/matches";
 import type { MemberProfile } from "@/lib/member-profile";
 import { computePersonalStats } from "@/lib/personal-stats";
@@ -34,8 +34,8 @@ const BUILD_MODE_LABEL: Record<string, string> = {
   captain_manual: "팀장(직접)",
 };
 
-const heroName = (code: string | null) =>
-  code ? (HERO_BY_CODE[code]?.nameKo ?? code) : null;
+const heroName = (code: string | null, heroByCode: Record<string, Hero>) =>
+  code ? (heroByCode[code]?.nameKo ?? code) : null;
 
 function dateKey(iso: string): string {
   const d = new Date(iso);
@@ -130,6 +130,7 @@ function ChannelTab({ matches }: { matches: MatchView[] }) {
 }
 
 function MatchCard({ match }: { match: MatchView }) {
+  const { heroByCode, mapByCode } = useRefData();
   const resultPending = match.winnerSide === null && match.scoreA === null;
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-surface-1 px-4 py-3">
@@ -143,10 +144,10 @@ function MatchCard({ match }: { match: MatchView }) {
           </Badge>
           {match.mapCode && (
             <span className="flex items-center gap-1 text-ink-subtle">
-              {MAP_BY_CODE[match.mapCode] && (
-                <ModeIcon mode={MAP_BY_CODE[match.mapCode].mode} size={14} />
+              {mapByCode[match.mapCode] && (
+                <ModeIcon mode={mapByCode[match.mapCode].mode} size={14} />
               )}
-              {MAP_BY_CODE[match.mapCode]?.nameKo ?? match.mapCode}
+              {mapByCode[match.mapCode]?.nameKo ?? match.mapCode}
             </span>
           )}
           {resultPending ? (
@@ -177,7 +178,7 @@ function MatchCard({ match }: { match: MatchView }) {
           🚫{" "}
           {[match.bannedHeroA, match.bannedHeroB]
             .filter(Boolean)
-            .map((c) => heroName(c))
+            .map((c) => heroName(c, heroByCode))
             .join(" / ")}
         </p>
       )}
@@ -195,6 +196,7 @@ function TeamColumn({
   team: MatchTeamView;
   winnerSide: "A" | "B" | null;
 }) {
+  const { heroByCode } = useRefData();
   const isWinner = winnerSide === team.side;
   return (
     <div
@@ -227,7 +229,7 @@ function TeamColumn({
                 {m.heroesUsed.map((code) => (
                   <span key={code} className="flex items-center gap-1">
                     <HeroImage code={code} size={18} />
-                    {heroName(code)}
+                    {heroName(code, heroByCode)}
                   </span>
                 ))}
               </span>

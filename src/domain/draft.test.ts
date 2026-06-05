@@ -20,6 +20,7 @@ function p(id: string, ratings: Participant["ratings"]): Participant {
     secondaryRole: null,
     ratings,
     heroCodes: [],
+    heroes: [],
     mapCodes: [],
   };
 }

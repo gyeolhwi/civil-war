@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRefData } from "@/components/ref-data-provider";
 import { HeroImage, ModeIcon, RoleIcon } from "@/components/ui/game-image";
-import { MAP_BY_CODE } from "@/constants/maps";
 import type { MatchTeamView } from "@/lib/matches";
 import type { PersonalMatch } from "@/lib/personal-stats";
 import { RESULT_META, recordDateFmt } from "@/lib/record-ui";
@@ -74,8 +74,9 @@ function MatchItem({
   match: PersonalMatch;
   memberId?: string;
 }) {
+  const { mapByCode } = useRefData();
   const meta = RESULT_META[match.result];
-  const map = match.mapCode ? MAP_BY_CODE[match.mapCode] : null;
+  const map = match.mapCode ? mapByCode[match.mapCode] : null;
   const bans = [match.bannedHeroA, match.bannedHeroB].filter(
     Boolean,
   ) as string[];

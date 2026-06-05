@@ -1,8 +1,10 @@
-import { HERO_BY_CODE } from "@/constants/heroes";
+import type { Hero } from "@/domain/types";
 import type { ResultKind } from "./personal-stats";
 
-export const heroName = (code: string | null) =>
-  code ? (HERO_BY_CODE[code]?.nameKo ?? code) : null;
+export const heroName = (
+  code: string | null,
+  heroByCode: Record<string, Hero>,
+) => (code ? (heroByCode[code]?.nameKo ?? code) : null);
 
 export const recordDateFmt = new Intl.DateTimeFormat("ko-KR", {
   month: "long",

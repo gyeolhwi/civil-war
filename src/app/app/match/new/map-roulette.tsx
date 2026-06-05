@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRefData } from "@/components/ref-data-provider";
 import { MapImage, ModeIcon } from "@/components/ui/game-image";
-import { MAP_BY_CODE, MAPS } from "@/constants/maps";
 import { cn } from "@/lib/utils";
-
-const POOL = MAPS.filter((m) => m.isActive).map((m) => m.code);
 
 /**
  * 맵 추첨 연출. 마운트되면 여러 맵을 빠르게 훑다가 점점 느려지며 finalCode에 안착.
@@ -21,6 +19,8 @@ export function MapRoulette({
   fromFallback: boolean;
   preferredBy: string[];
 }) {
+  const { maps, mapByCode } = useRefData();
+  const pool = maps.filter((m) => m.isActive).map((m) => m.code);
   const [display, setDisplay] = useState(finalCode);
   const [spinning, setSpinning] = useState(true);
   const [flash, setFlash] = useState(false); // 안착 직후 글로우 버스트
@@ -31,7 +31,7 @@ export function MapRoulette({
     let timer: ReturnType<typeof setTimeout>;
     let delay = 50;
     // 25개 전부가 아니라 미리 섞은 소수만 순환 → 로드/캐시 부담 최소화
-    const seq = [...POOL].sort(() => Math.random() - 0.5).slice(0, 10);
+    const seq = [...pool].sort(() => Math.random() - 0.5).slice(0, 10);
     let i = 0;
     const tick = () => {
       if (cancelled) return;
@@ -56,7 +56,7 @@ export function MapRoulette({
     };
   }, []);
 
-  const finalMap = MAP_BY_CODE[finalCode];
+  const finalMap = mapByCode[finalCode];
 
   return (
     <>
@@ -99,7 +99,7 @@ export function MapRoulette({
         >
           {finalMap && !spinning && <ModeIcon mode={finalMap.mode} size={22} />}
           {spinning
-            ? (MAP_BY_CODE[display]?.nameKo ?? "…")
+            ? (mapByCode[display]?.nameKo ?? "…")
             : (finalMap?.nameKo ?? finalCode)}
         </p>
         <p className="mt-2 min-h-5 text-sm text-ink-subtle">

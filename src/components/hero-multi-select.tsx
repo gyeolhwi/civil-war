@@ -1,7 +1,8 @@
 "use client";
 
+import { useRefData } from "@/components/ref-data-provider";
 import { HeroImage } from "@/components/ui/game-image";
-import { HEROES_BY_ROLE, ROLE_LABEL_KO } from "@/constants/heroes";
+import { ROLE_LABEL_KO } from "@/constants/heroes";
 import type { Role } from "@/domain/types";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +24,8 @@ export function HeroMultiSelect({
   onChange: (codes: string[]) => void;
   className?: string;
 }) {
-  const options = HEROES_BY_ROLE[role].filter((h) => !value.includes(h.code));
+  const { heroesByRole } = useRefData();
+  const options = heroesByRole[role].filter((h) => !value.includes(h.code));
 
   function add(code: string) {
     if (!code || value.includes(code)) return;
@@ -66,7 +68,7 @@ export function HeroMultiSelect({
             >
               <HeroImage code={code} size={18} />
               <span>
-                {HEROES_BY_ROLE[role].find((h) => h.code === code)?.nameKo ??
+                {heroesByRole[role].find((h) => h.code === code)?.nameKo ??
                   code}
               </span>
               <span className="text-ink-subtle">×</span>

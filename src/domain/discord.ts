@@ -1,10 +1,9 @@
-import { HERO_BY_CODE } from "@/constants/heroes";
-import { MAP_BY_CODE } from "@/constants/maps";
 import type { Role } from "@/domain/types";
 
 /**
  * 팀 구성을 디스코드 붙여넣기용 텍스트로 변환 (workflow [7] F12b, SC-27).
  * 순수 함수 — 클립보드 복사는 호출부에서.
+ * 영웅·맵 이름 해석은 호출부가 주입 (마스터 데이터는 DB).
  */
 
 const ROLE_EMOJI: Record<Role, string> = {
@@ -12,6 +11,12 @@ const ROLE_EMOJI: Record<Role, string> = {
   dps: "⚔️",
   support: "💉",
 };
+
+/** 코드 → 한글명 해석기 (없으면 코드 그대로 표시) */
+export interface NameResolver {
+  heroName: (code: string) => string | undefined;
+  mapName: (code: string) => string | undefined;
+}
 
 export interface ShareMember {
   battleTag: string;
@@ -33,16 +38,20 @@ export interface ShareInput {
   banB?: string | null;
 }
 
-function memberText(m: ShareMember): string {
-  const hero = m.heroCode ? HERO_BY_CODE[m.heroCode]?.nameKo : null;
+function memberText(m: ShareMember, resolve: NameResolver): string {
+  const hero = m.heroCode ? resolve.heroName(m.heroCode) : null;
   return hero ? `${m.battleTag} (${hero})` : m.battleTag;
 }
 
-function teamBlock(emoji: string, team: ShareTeam): string {
+function teamBlock(
+  emoji: string,
+  team: ShareTeam,
+  resolve: NameResolver,
+): string {
   const byRole = (role: Role) =>
     team.members
       .filter((m) => m.role === role)
-      .map(memberText)
+      .map((m) => memberText(m, resolve))
       .join(" / ");
 
   return [
@@ -53,16 +62,22 @@ function teamBlock(emoji: string, team: ShareTeam): string {
   ].join("\n");
 }
 
-export function buildDiscordText(input: ShareInput): string {
-  const blocks = [teamBlock("🔵", input.teamA), teamBlock("🔴", input.teamB)];
+export function buildDiscordText(
+  input: ShareInput,
+  resolve: NameResolver,
+): string {
+  const blocks = [
+    teamBlock("🔵", input.teamA, resolve),
+    teamBlock("🔴", input.teamB, resolve),
+  ];
 
   const footer: string[] = [];
   if (input.mapCode) {
-    footer.push(`🗺️ ${MAP_BY_CODE[input.mapCode]?.nameKo ?? input.mapCode}`);
+    footer.push(`🗺️ ${resolve.mapName(input.mapCode) ?? input.mapCode}`);
   }
   const bans = [input.banA, input.banB]
     .filter((c): c is string => Boolean(c))
-    .map((c) => HERO_BY_CODE[c]?.nameKo ?? c);
+    .map((c) => resolve.heroName(c) ?? c);
   if (bans.length) footer.push(`🚫 ${bans.join(" / ")}`);
   if (footer.length) blocks.push(footer.join("   "));
 

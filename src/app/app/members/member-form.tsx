@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { useRefData } from "@/components/ref-data-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,10 +21,10 @@ import {
 } from "@/components/ui/game-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { HERO_BY_CODE, HEROES, ROLE_LABEL_KO } from "@/constants/heroes";
-import { MAPS, MODE_LABEL_KO } from "@/constants/maps";
+import { ROLE_LABEL_KO } from "@/constants/heroes";
+import { MODE_LABEL_KO } from "@/constants/maps";
 import { TIER_LABEL_KO, TIER_ORDER } from "@/constants/tiers";
-import type { GameMode, Role, Tier } from "@/domain/types";
+import type { GameMap, GameMode, Role, Tier } from "@/domain/types";
 import { cn } from "@/lib/utils";
 import { saveMember } from "./actions";
 import { type MemberFormValues, memberFormSchema } from "./schema";
@@ -70,6 +71,7 @@ export function MemberForm({
   member?: MemberView;
   trigger: React.ReactNode;
 }) {
+  const { heroes, heroByCode, maps } = useRefData();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -153,9 +155,9 @@ export function MemberForm({
   }
 
   const filteredHeroes = heroQuery.trim()
-    ? HEROES.filter((h) => h.nameKo.includes(heroQuery.trim()))
-    : HEROES;
-  const mapsByMode = groupMaps();
+    ? heroes.filter((h) => h.nameKo.includes(heroQuery.trim()))
+    : heroes;
+  const mapsByMode = groupMaps(maps);
 
   return (
     <Dialog
@@ -315,7 +317,7 @@ export function MemberForm({
                       className="h-8 cursor-pointer gap-1 pr-3 pl-1 text-sm"
                     >
                       <HeroImage code={code} size={22} />
-                      {HERO_BY_CODE[code]?.nameKo ?? code}
+                      {heroByCode[code]?.nameKo ?? code}
                       <span aria-hidden>×</span>
                     </Badge>
                   </button>
@@ -428,7 +430,7 @@ export function MemberForm({
   );
 }
 
-function groupMaps(): { mode: GameMode; maps: typeof MAPS }[] {
+function groupMaps(maps: GameMap[]): { mode: GameMode; maps: GameMap[] }[] {
   const order: GameMode[] = [
     "control",
     "escort",
@@ -440,7 +442,7 @@ function groupMaps(): { mode: GameMode; maps: typeof MAPS }[] {
   return order
     .map((mode) => ({
       mode,
-      maps: MAPS.filter((m) => m.mode === mode && m.isActive),
+      maps: maps.filter((m) => m.mode === mode && m.isActive),
     }))
     .filter((g) => g.maps.length > 0);
 }

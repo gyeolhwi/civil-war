@@ -1,4 +1,7 @@
+"use client";
+
 import { MatchHistoryList } from "@/components/match-history";
+import { useRefData } from "@/components/ref-data-provider";
 import {
   HeroImage,
   ModeIcon,
@@ -6,7 +9,6 @@ import {
   TierImage,
 } from "@/components/ui/game-image";
 import { ROLE_LABEL_KO } from "@/constants/heroes";
-import { MAP_BY_CODE } from "@/constants/maps";
 import { TIER_LABEL_KO } from "@/constants/tiers";
 import type { Role } from "@/domain/types";
 import type { MemberProfile } from "@/lib/member-profile";
@@ -86,6 +88,7 @@ export function PersonalRecordView({
 
 // ── 프로필 헤더 ──────────────────────────────────────────
 function ProfileHeader({ profile }: { profile: MemberProfile }) {
+  const { heroByCode, mapByCode } = useRefData();
   const name = profile.battleTag.split("#")[0];
   const ratedRoles = ROLES_ORDERED.filter((r) => profile.ratings[r]);
   return (
@@ -151,7 +154,7 @@ function ProfileHeader({ profile }: { profile: MemberProfile }) {
               className="flex items-center gap-1 rounded-full bg-surface-2 py-0.5 pl-0.5 pr-2 text-xs text-ink-muted"
             >
               <HeroImage code={code} size={18} />
-              {heroName(code)}
+              {heroName(code, heroByCode)}
             </span>
           ))}
         </div>
@@ -162,10 +165,10 @@ function ProfileHeader({ profile }: { profile: MemberProfile }) {
           <span>선호 맵</span>
           {profile.mapCodes.map((code) => (
             <span key={code} className="flex items-center gap-1 text-ink-muted">
-              {MAP_BY_CODE[code] && (
-                <ModeIcon mode={MAP_BY_CODE[code].mode} size={12} />
+              {mapByCode[code] && (
+                <ModeIcon mode={mapByCode[code].mode} size={12} />
               )}
-              {MAP_BY_CODE[code]?.nameKo ?? code}
+              {mapByCode[code]?.nameKo ?? code}
             </span>
           ))}
         </p>
@@ -245,6 +248,7 @@ function WinRateRing({ pct, hasData }: { pct: number; hasData: boolean }) {
 
 // ── 모스트 영웅 / 듀오 행 ────────────────────────────────
 function HeroRow({ hero }: { hero: HeroStat }) {
+  const { heroByCode } = useRefData();
   const pct = winRateOf(hero.wins, hero.games);
   const high = pct >= 50;
   return (
@@ -252,7 +256,9 @@ function HeroRow({ hero }: { hero: HeroStat }) {
       <HeroImage code={hero.code} size={32} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center justify-between gap-2 text-sm">
-          <span className="truncate font-medium">{heroName(hero.code)}</span>
+          <span className="truncate font-medium">
+            {heroName(hero.code, heroByCode)}
+          </span>
           <span className="shrink-0 text-xs text-ink-subtle">
             {hero.games}판 ·{" "}
             <span className={high ? "text-sky-300" : "text-rose-300"}>

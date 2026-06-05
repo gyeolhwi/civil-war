@@ -25,9 +25,15 @@ const teamB: ShareTeam = {
   ],
 };
 
+const resolve = {
+  heroName: (c: string) =>
+    ({ rein: "라인하르트", tracer: "트레이서", genji: "겐지" })[c],
+  mapName: (c: string) => ({ kings_row: "왕의 길" })[c],
+};
+
 describe("buildDiscordText", () => {
   it("양 팀 라벨·점수·배틀태그를 포함한다", () => {
-    const text = buildDiscordText({ teamA, teamB });
+    const text = buildDiscordText({ teamA, teamB }, resolve);
     expect(text).toContain("A팀 (23,450)");
     expect(text).toContain("B팀 (23,120)");
     expect(text).toContain("홍길동#1");
@@ -35,24 +41,27 @@ describe("buildDiscordText", () => {
   });
 
   it("영웅 코드는 한글 이름으로 표시한다", () => {
-    const text = buildDiscordText({ teamA, teamB });
+    const text = buildDiscordText({ teamA, teamB }, resolve);
     expect(text).toContain("홍길동#1 (라인하르트)");
   });
 
   it("맵과 밴이 있으면 푸터에 포함한다", () => {
-    const text = buildDiscordText({
-      teamA,
-      teamB,
-      mapCode: "kings_row",
-      banA: "tracer",
-      banB: "genji",
-    });
+    const text = buildDiscordText(
+      {
+        teamA,
+        teamB,
+        mapCode: "kings_row",
+        banA: "tracer",
+        banB: "genji",
+      },
+      resolve,
+    );
     expect(text).toMatch(/🗺️ .+/);
     expect(text).toMatch(/🚫 /);
   });
 
   it("맵·밴이 없으면 푸터를 생략한다", () => {
-    const text = buildDiscordText({ teamA, teamB });
+    const text = buildDiscordText({ teamA, teamB }, resolve);
     expect(text).not.toContain("🗺️");
     expect(text).not.toContain("🚫");
   });
