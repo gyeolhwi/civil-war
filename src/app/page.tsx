@@ -16,20 +16,26 @@ export default function Home() {
           <br />
           드래그 한 번으로.
         </p>
-        <Link
-          href="/login"
-          className={buttonVariants({ size: "lg", className: "px-8" })}
-        >
-          내전 편성하기
-        </Link>
-        <p className="mt-6 text-sm text-ink-subtle">
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link
+            href="/login"
+            className={buttonVariants({ size: "lg", className: "px-8" })}
+          >
+            내전 편성하기
+          </Link>
           <Link
             href="/record"
-            className="underline underline-offset-4 transition-colors hover:text-foreground"
+            className={buttonVariants({
+              variant: "outline",
+              size: "lg",
+              className: "px-8",
+            })}
           >
-            개인 전적 검색
-          </Link>{" "}
-          은 로그인 없이 이용할 수 있어요
+            전적 검색
+          </Link>
+        </div>
+        <p className="mt-6 text-sm text-ink-subtle">
+          전적 검색은 로그인 없이 이용할 수 있어요
         </p>
       </div>
     </main>
