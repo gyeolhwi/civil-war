@@ -33,6 +33,12 @@ const MENUS = [
   },
 ];
 
+const SUPER_MENU = {
+  href: "/app/admin",
+  title: "영웅·맵 관리",
+  desc: "영웅 분류·맵풀 편집, CSV 내보내기 (슈퍼관리자)",
+};
+
 export default async function Dashboard() {
   const supabase = await createClient();
   // 채널 조회는 user.id가 필요 없으므로 인증 확인과 병렬 실행
@@ -45,10 +51,11 @@ export default async function Dashboard() {
   const username = user?.email?.split("@")[0] ?? "관리자";
   const { data: admin } = await supabase
     .from("admins")
-    .select("display_name")
+    .select("display_name, is_super")
     .eq("id", user?.id ?? "")
     .maybeSingle();
   const displayName = admin?.display_name || username;
+  const menus = admin?.is_super ? [...MENUS, SUPER_MENU] : MENUS;
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
@@ -70,7 +77,7 @@ export default async function Dashboard() {
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {MENUS.map((menu, i) => (
+        {menus.map((menu, i) => (
           <Link
             key={menu.href}
             href={menu.href}
