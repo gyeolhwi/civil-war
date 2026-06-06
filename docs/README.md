@@ -17,6 +17,7 @@
 | `spec/scenarios.md` | 시나리오 케이스 (SC-01~) | |
 | [`design/design.md`](design/design.md) | 디자인 시스템 (Linear 다크 + 모션 + 토스식 UX) | |
 | [`ops/supabase-setup.md`](ops/supabase-setup.md) | DB 마이그레이션·계정·시드 실행 가이드 | 셋업 시 |
+| [`ops/discord-bot-setup.md`](ops/discord-bot-setup.md) | 디스코드 봇 처음부터 끝까지 셋업(권한·env·Vercel·트러블슈팅) | 봇 작업 시 |
 
 ## 🧭 빠른 컨텍스트
 
