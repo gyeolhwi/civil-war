@@ -57,12 +57,10 @@ async function handleNaejeon(interaction: DiscordInteraction) {
       data: { content: "✅ 내전 공지를 올렸어요!", flags: EPHEMERAL },
     });
   } catch (e) {
-    // 임시 진단: 운영 런타임이 보는 env 키 존재 여부(값 아님, 불리언만).
-    const envState = `[env] PUBLIC_KEY=${Boolean(process.env.DISCORD_PUBLIC_KEY)} BOT_TOKEN=${Boolean(process.env.DISCORD_BOT_TOKEN)}`;
     return NextResponse.json({
       type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: `공지 게시 실패: ${e instanceof Error ? e.message : String(e)}\n${envState}`,
+        content: `공지 게시 실패: ${e instanceof Error ? e.message : String(e)}`,
         flags: EPHEMERAL,
       },
     });
