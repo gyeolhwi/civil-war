@@ -3,25 +3,25 @@
 > 세션 이어가기 진입점. **여기를 먼저 읽고** 다음 작업을 결정한다.
 > 작업을 끝낼 때마다 이 파일의 "다음 할 일"과 "완료" 섹션을 갱신할 것.
 
-마지막 갱신: 2026-06-05
+마지막 갱신: 2026-06-07
 
-> **현재 한 줄 요약:** 핵심 기능 + 영웅/맵 **DB 이관** + **슈퍼관리자 관리 UI**까지 **`main` 배포 완료·실사용 중.**
-> 빌드·테스트(32/32) 통과. 다음 후보는 **디스코드 봇 · 규칙 프레젠테이션 화면** (아래 토의 문서).
+> **현재 한 줄 요약:** 핵심 기능 + 영웅/맵 DB 이관 + 관리 UI에 더해 **디스코드 봇 `/내전`(공지+✅)까지 `main` 배포·실작동 확인.**
+> 봇은 서버리스(HTTP 인터랙션 + REST) 방식. 다음은 **`/참가자`**(✅ 누른 사람 조회). 셋업 가이드 = [`ops/discord-bot-setup.md`](ops/discord-bot-setup.md).
 
 ---
 
-## 🔖 이어서 작업 (중단점 2026-06-05) — 다음 세션은 여기부터
+## 🔖 이어서 작업 (중단점 2026-06-07) — 다음 세션은 여기부터
 
 ### 지금 상태
-- **`dev`·`main` 동기화** (`017bfc0`). 영웅/맵 DB 이관 + 슈퍼관리자 관리 UI까지 프로덕션 배포됨.
-- 워킹트리: `docs/discussion/discord-bot-and-presentation.md`(향후 작업 가이드, 미커밋).
-- 검증: tsc clean · 테스트 32/32 · 빌드 ✅.
+- **`main` 배포** (`613a600`). 디스코드 봇 `/내전`(공지 임베드 + ✅ 자동첨부)까지 프로덕션 실작동 확인.
+- Discord 셋업 완료: 봇(`내전-모이라봇`) 서버(벙커) 초대, 인터랙션 엔드포인트 등록, env(`DISCORD_PUBLIC_KEY`/`DISCORD_BOT_TOKEN`) Vercel 반영, Vercel 배포 보호 OFF.
+- 검증: tsc clean · 빌드 ✅ · `/내전` 실사용 동작.
 
-### 다음 작업 후보 → 토의: [`discussion/discord-bot-and-presentation.md`](discussion/discord-bot-and-presentation.md)
-- **Phase 1 — 규칙 프레젠테이션 화면**(`/present`): 디스코드 라이브 진행용. 봇 무관·쉬움·독립.
-- **Phase 0 — `members.discord_user_id` 추가**: 디스코드 계정↔멤버 연결 키(봇 연동의 전제).
-- **Phase 2~** — HTTP 인터랙션 봇(`/내전` 공지+✅, `/참가자` 반응→멤버), 음성 자동분배, 온보딩 링크.
-- 결정 필요: 무엇부터(프레젠테이션 vs 봇 기반), 봇 호스팅(서버리스 시작 권장).
+### 다음 작업 후보 → 토의: [`discussion/discord-bot-and-presentation.md`](discussion/discord-bot-and-presentation.md) · 셋업: [`ops/discord-bot-setup.md`](ops/discord-bot-setup.md)
+- **(권장 다음) `/참가자`** — 공지에 ✅ 단 사람 목록 조회(`GET .../reactions/✅`). DB 없이 "✅ N명: @A @B…"까지 바로 가능.
+- **Phase 0 — `members.discord_user_id` 추가**: 디스코드 계정↔멤버 연결 키. `/참가자`가 "등록 멤버 이름"까지 보여주려면 필요.
+- **Phase 4~** — 음성 자동분배(웹→봇 push, Move Members), 온보딩 `/등록` 링크 DM.
+- **Phase 1 — 규칙 프레젠테이션 화면**(`/present`): 봇 무관·독립. 별개로 진행 가능.
 
 ---
 
@@ -106,6 +106,17 @@
 - **슈퍼관리자 영웅·맵 관리 UI** (`/app/admin`, `FEAT(admin)` `017bfc0`): is_super 게이트. 영웅 전체 편집(이름·역할·comp·func·활성, Zod로 comp 1~2·역할별 func 검증)·맵 편집·CSV 내보내기. 저장 시 `updateTag("ref-data")`로 전역 즉시 반영. 대시보드 슈퍼 메뉴 게이팅.
 - **랜딩 전적 검색 버튼**(`947d6f0`): `/record` 진입 보조 버튼.
 
+### 디스코드 봇 `/내전` + 푸터 제작자 표기 (2026-06-07, main 배포·실작동)
+
+> 서버리스(HTTP 인터랙션 + REST) 봇. 별도 상시 서버 없이 Vercel 라우트로 동작. 셋업 전 과정은 [`ops/discord-bot-setup.md`](ops/discord-bot-setup.md).
+
+- **인터랙션 엔드포인트** (`/api/discord/interactions`, `route.ts`): Ed25519 서명검증(`lib/discord/verify.ts`, `node:crypto`) + PING/PONG. POC(`poc/discord-interactions-verify.mjs`) 7/7 → 라우트 이식. `/api/discord`는 세션 미들웨어에서 제외(3초 제한).
+- **`/내전 날짜 시간`** 커맨드: 모집 임베드 공지 게시 + ✅ 자동 첨부. 공지는 봇 REST(`lib/discord/rest.ts` `postChannelMessage`)로 올려 message.id 확보 → `addReaction`. 인터랙션 응답은 ephemeral 확인.
+- **커맨드 등록 스크립트** (`scripts/discord-register.mjs`): `node --env-file=.env.local`로 길드 즉시 등록(PUT 덮어쓰기).
+- **봇 권한(최소)**: 채널보기·메시지보내기·링크임베드·반응추가·메시지기록보기 + (음성)멤버이동. scope `bot`+`applications.commands`. Privileged Intents 전부 OFF.
+- **겪은 함정(가이드에 기록)**: ① Vercel 배포 보호(SSO) → Discord 검증 차단(끔). ② 이름 비슷한 남의 `civil-war.vercel.app`. ③ **env 추가 후 새 배포 안 하면 런타임 미반영**(`DISCORD_BOT_TOKEN` 못 읽음) → git push로 해결.
+- **푸터 제작자 표기**(`96ab275`): 랜딩 푸터에 GitHub(gyeolhwi) 링크 + Discord 핸들, 메타데이터 author/creator를 gyeolhwi로.
+
 ## 🔶 진행 중 / 막힌 곳
 
 - ~~채널 시드~~ ✅ 완료 (위 참조).
@@ -122,8 +133,9 @@
 - 사용자 버그/요청을 재현 → 원인 → 수정 순으로 처리.
 - 메모리 미해결 건: Vercel Preview `MIDDLEWARE_INVOCATION_FAILED` (Supabase env 미반영 추정) — 재발 시 우선.
 
-**B. 디스코드 봇 · 규칙 프레젠테이션 화면** → [`discussion/discord-bot-and-presentation.md`](discussion/discord-bot-and-presentation.md)
-- Phase 1(프레젠테이션 화면) 또는 Phase 0(`discord_user_id` 추가)부터. 봇은 서버리스(HTTP 인터랙션) 시작 권장.
+**B. 디스코드 봇 이어가기** → [`discussion/discord-bot-and-presentation.md`](discussion/discord-bot-and-presentation.md) · [`ops/discord-bot-setup.md`](ops/discord-bot-setup.md)
+- 엔드포인트 + `/내전`은 배포·실작동 완료. **다음은 `/참가자`**(✅ 누른 사람 조회), 이어서 `discord_user_id` 매핑 → 멤버 이름 표시 → 음성 자동분배·온보딩.
+- 규칙 프레젠테이션 화면(`/present`)은 봇과 별개로 독립 진행 가능.
 
 **C. 남은 폴리싱 (선택)**
 - 팀장 탱커/예능 모드, dnd-kit 드래그 전환, 반응형(모바일) 다듬기.
@@ -146,6 +158,7 @@
 - 빌드: `pnpm build` / 린트: `pnpm lint` (biome) / 테스트: `pnpm test` (vitest)
 - `.env.local`: Supabase URL/anon key 설정됨 (gitignore). 프로젝트 ref `dxeuukenmhfnsrhiggri`
 - Supabase 키 안내: `ops/supabase-setup.md`
+- Discord env: `DISCORD_PUBLIC_KEY`·`DISCORD_BOT_TOKEN`(런타임, Vercel 등록 필요) + `DISCORD_APPLICATION_ID`·`DISCORD_GUILD_ID`(로컬 등록 스크립트 전용). 안내: `ops/discord-bot-setup.md`
 
 ## 📌 핵심 설계 결정 (놓치면 안 되는 것)
 
