@@ -19,6 +19,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Civil War — 오버워치 내전 편성",
   description: "디스코드 채널별 오버워치 내전 팀 편성·운영·기록",
+  authors: [{ name: "gyeolhwi" }],
+  creator: "gyeolhwi",
 };
 
 // Supabase(서울 ap-northeast-2)와 함수 리전을 맞춰 서버↔DB 왕복 지연 최소화.
