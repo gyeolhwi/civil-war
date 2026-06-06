@@ -5,34 +5,23 @@
 
 마지막 갱신: 2026-06-05
 
-> **현재 한 줄 요약:** 핵심 기능 완료 + 배포·실사용 중. 이번 세션에 **op.gg식 전적/프로필 개편 · 영웅 다중등록 · 공개검색(/record) · 밸런스 리워크**를 작업함.
-> 코드는 빌드·테스트(32/32) 통과. **커밋·`dev` push 완료(2026-06-05) → Vercel Preview 배포 중.** main 프로덕션 머지는 Preview 확인 후 대기.
+> **현재 한 줄 요약:** 핵심 기능 + 영웅/맵 **DB 이관** + **슈퍼관리자 관리 UI**까지 **`main` 배포 완료·실사용 중.**
+> 빌드·테스트(32/32) 통과. 다음 후보는 **디스코드 봇 · 규칙 프레젠테이션 화면** (아래 토의 문서).
 
 ---
 
 ## 🔖 이어서 작업 (중단점 2026-06-05) — 다음 세션은 여기부터
 
 ### 지금 상태
-- **`dev` push 완료** — `origin/dev`까지 `cce507f`. 8커밋 반영, Vercel Preview 자동 배포.
-- 워킹트리 깨끗. 유일한 untracked: `docs/discussion/balancing-data-review.md`(2번 DB이관 토의 문서, 의도적으로 미커밋).
-- 검증: tsc clean·테스트 32/32·빌드 ✅. (biome 20 errors는 전부 스캐폴드 스타일 nit `useImportType`·`noNonNullAssertion`, 회귀 아님·배포 무관.) **브라우저 로컬 검증은 생략 — Preview에서 실사용 검증하기로.**
+- **`dev`·`main` 동기화** (`017bfc0`). 영웅/맵 DB 이관 + 슈퍼관리자 관리 UI까지 프로덕션 배포됨.
+- 워킹트리: `docs/discussion/discord-bot-and-presentation.md`(향후 작업 가이드, 미커밋).
+- 검증: tsc clean · 테스트 32/32 · 빌드 ✅.
 
-### 이어서 할 일 (순서대로)
-- [x] 1. 미커밋 커밋 — A `FIX(record)` `e09e069`, B `FEAT(balance)` `87c1d0a`로 분리 완료.
-- [~] 2. 로컬 확인 — 생략, Preview 실배포에서 확인하기로 결정.
-- [x] 3. **`dev` push → Vercel Preview** — push 완료, Preview 배포 진행.
-- [ ] 4. **Preview 확인**: `/record`(검색·프로필·전적 펼침), `/app/stats` op.gg 화면, 내전 자동편성 밸런스 감점이 의도대로 먹는지.
-- [ ] 5. 이상 없으면 **`main` 머지 → 프로덕션 배포**.
-
-### 배포 전 확인 (사용자가 Vercel 대시보드에서)
-- [ ] Vercel **Preview 환경**에 `NEXT_PUBLIC_SUPABASE_*` 들어갔는지 (예전 Preview 500 원인 — 공개 키 3종을 All Environments로)
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` 프로덕션·프리뷰 등록 ✅ (이전 세션 완료, 값이 service_role인지만 재확인)
-
-### 다음 작업 — 2번 (밸런싱 DB 이관 토의)
-> 전제: 어제 밸런스 리워크(comp/func 분류·조합 감점 재설계, `87c1d0a`) 기반으로 `balancing-data-review.md`를 **전체 검토 → 이관 범위·스키마 확정**한 뒤 마이그레이션 진행.
-- `balancing-data-review.md` §2 A~E 검토 + §4 결론 채우기 → 이관 범위/스키마 결정
-- (이관 후속) `0003` 마이그레이션으로 deprecated `team_members.hero_used` 드롭
-- 밸런스 감점 수치 튜닝(`COMBO_PENALTY` 등 코드 상수) / `hero-classification.md` ⚠️ 항목 재검수
+### 다음 작업 후보 → 토의: [`discussion/discord-bot-and-presentation.md`](discussion/discord-bot-and-presentation.md)
+- **Phase 1 — 규칙 프레젠테이션 화면**(`/present`): 디스코드 라이브 진행용. 봇 무관·쉬움·독립.
+- **Phase 0 — `members.discord_user_id` 추가**: 디스코드 계정↔멤버 연결 키(봇 연동의 전제).
+- **Phase 2~** — HTTP 인터랙션 봇(`/내전` 공지+✅, `/참가자` 반응→멤버), 음성 자동분배, 온보딩 링크.
+- 결정 필요: 무엇부터(프레젠테이션 vs 봇 기반), 봇 호스팅(서버리스 시작 권장).
 
 ---
 
@@ -93,10 +82,9 @@
 - **Vercel 배포 완료**, 디스코드 채널에서 실제 사용 시작됨.
   (RLS 적용 경로·로그인 세션이 실사용으로 사실상 검증되는 중)
 
-### 개선 1차 — 영웅 다중 + 개인전적 + 공개검색 (2026-06-04, 코드 완료)
+### 개선 1차 — 영웅 다중 + 개인전적 + 공개검색 (2026-06-04, 배포 완료)
 
-> 상세·체크리스트: [`discussion/personal-stats-multihero.md`](discussion/personal-stats-multihero.md)
-> 빌드·테스트(24/24)·타입체크 통과. **단, 배포 전 수동 작업 2건 남음(아래 ⚠️).**
+> 빌드·테스트·타입체크 통과 + main 배포·실사용 중. (토의 문서는 구현 완료로 정리·삭제됨)
 
 - **영웅 다중 등록(#1)**: `team_members.heroes_used text[]`(migration 0002)로 확장.
   결과 입력·전적 수정이 단일 select → 칩 다중선택(`components/hero-multi-select.tsx`), 전적 표시도 다중 초상.
@@ -106,14 +94,24 @@
 - **공개 개인전적 검색(추가)**: 로그인 없는 `/record` — 배틀태그·닉네임 검색 → 소속 채널 선택 → 전적(읽기 전용).
   service-role 클라이언트(`lib/supabase/admin.ts`, 서버 액션 전용), 채널 격리 유지.
 
+### 밸런스 리워크 + 영웅/맵 DB 이관 + 관리 UI (2026-06-05, main 배포 완료)
+
+- **밸런스 리워크** (`87c1d0a`): 영웅 분류를 `subRoles`/`normalizedSubRole` → **`comp`(조합 성향: dive/brawl/poke, 전역할) + `func`(역할 내 기능)** 으로 재설계.
+  `comboPenalty`도 "탱 컨셉 응집(compMismatch) + within-role(딜 앵커·메인힐·힐러 편중)"으로 재작성. 시너지 가점은 끔(현행 유지).
+- **영웅·맵 마스터 DB 이관** (`0003` 마이그레이션 + `REFACTOR(data)` `a62db29`):
+  - `heroes`/`maps` 테이블(comp·func·mode·is_active) + 공개 읽기·슈퍼 쓰기 RLS + 51영웅·31맵 시드. 사용자가 SQL 실행 완료.
+  - 코드: 서버 `lib/ref-data.ts`(unstable_cache·enum 검증) + 클라 Context `useRefData()`로 로드. 상수엔 라벨/enum만 잔존.
+  - team-builder는 `Participant.heroes` 주입·`selectMap` 활성맵 인자화, discord는 이름 리졸버 주입(순수성 유지).
+  - **경계선 결정**: 영웅·맵별 속성 = DB / 알고리즘 튜닝 상수(`COMBO_PENALTY`·`PREFERENCE_WEIGHT`·`TIER_BASE`) = 코드.
+- **슈퍼관리자 영웅·맵 관리 UI** (`/app/admin`, `FEAT(admin)` `017bfc0`): is_super 게이트. 영웅 전체 편집(이름·역할·comp·func·활성, Zod로 comp 1~2·역할별 func 검증)·맵 편집·CSV 내보내기. 저장 시 `updateTag("ref-data")`로 전역 즉시 반영. 대시보드 슈퍼 메뉴 게이팅.
+- **랜딩 전적 검색 버튼**(`947d6f0`): `/record` 진입 보조 버튼.
+
 ## 🔶 진행 중 / 막힌 곳
 
 - ~~채널 시드~~ ✅ 완료 (위 참조).
 - ~~대시보드 메뉴 404~~ — 4개 메뉴 모두 구현 완료.
 - ~~영웅/맵 이미지 미배치~~ ✅ 전량 배치 (Phase 6).
-- **밸런싱 로직 검토 (토의 중)** → [`discussion/balancing-data-review.md`](discussion/balancing-data-review.md)
-  - 영웅·맵 데이터의 DB 이관 **전에** 현재 로직 결함 5종(A~E)을 점검하는 문서.
-  - 문서 하단 "4. 내 의견 (사용자 작성란)"이 **비어 있음 → 사용자 결정 대기**.
+- ~~밸런싱 로직 검토 + 영웅/맵 DB 이관~~ ✅ 완료 (A~E 검토 후 comp/func 재설계 + DB 이관·관리 UI까지 배포. 토의 문서는 정리·삭제).
 - **E2E 자동화 미구축**: 실사용으로 화면·세션·RLS는 사실상 검증되는 중이나, Playwright 등 자동 E2E는 아직 없음.
 
 ## ▶️ 다음 할 일 (실사용 피드백 기반 선택)
@@ -124,9 +122,8 @@
 - 사용자 버그/요청을 재현 → 원인 → 수정 순으로 처리.
 - 메모리 미해결 건: Vercel Preview `MIDDLEWARE_INVOCATION_FAILED` (Supabase env 미반영 추정) — 재발 시 우선.
 
-**B. 밸런싱 로직 검토 + 데이터 DB 이관**
-- [`discussion/balancing-data-review.md`](discussion/balancing-data-review.md) A~E 항목에 사용자 의견 채우기 → 결정 → 반영.
-- 결정 후: 영웅·맵 마스터 DB 이관(콘텐츠), 규칙은 코드 유지.
+**B. 디스코드 봇 · 규칙 프레젠테이션 화면** → [`discussion/discord-bot-and-presentation.md`](discussion/discord-bot-and-presentation.md)
+- Phase 1(프레젠테이션 화면) 또는 Phase 0(`discord_user_id` 추가)부터. 봇은 서버리스(HTTP 인터랙션) 시작 권장.
 
 **C. 남은 폴리싱 (선택)**
 - 팀장 탱커/예능 모드, dnd-kit 드래그 전환, 반응형(모바일) 다듬기.
@@ -135,10 +132,8 @@
 
 ## ⚠️ 미해결 / 기술 부채
 
-- **[배포 전 필수] 개선 1차 수동 작업 2건**:
-  1. Supabase SQL Editor에서 `supabase/migrations/0002_team_member_heroes.sql` **실행** (heroes_used 컬럼 추가·백필).
-  2. Vercel 프로덕션 env에 `SUPABASE_SERVICE_ROLE_KEY` 등록 (공개 `/record` 검색 동작 전제).
-  - ↑ 둘 다 안 하면: 결과 입력 시 영웅 저장 실패 / `/record` 500.
+- ~~[배포 전 필수] 0002 마이그레이션 실행 + 프로덕션 `SUPABASE_SERVICE_ROLE_KEY` 등록~~ ✅ 완료(실사용 중). 0003도 실행 완료.
+- (정리 후보) deprecated `team_members.hero_used` 컬럼 드롭 — 현재 `heroes_used[]` 사용, 단일 컬럼은 미사용.
 - `src/middleware.ts` — Next 16에서 deprecated 경고(`proxy.ts` 권장). 동작은 정상.
 - **Vercel Preview `MIDDLEWARE_INVOCATION_FAILED`** — Supabase env 미반영 추정, 미해결 (프로덕션 동작은 정상).
 - `seed.sql`의 username이 `admin` 하드코딩 — 실제 계정과 불일치 (채널 시드는 수동 SQL로 우회 완료).
@@ -155,7 +150,8 @@
 ## 📌 핵심 설계 결정 (놓치면 안 되는 것)
 
 - 멤버 = 글로벌 식별(배틀태그 유니크) + **채널별 프로필**(티어·선호). 채널 격리 RLS.
-- 점수: 티어(1000~8000)+디비전(+0~400) × 선호가중치(1.0/0.9/0.75). 조합 패널티 6종. 탱-딜 불일치(§8.4).
-- 중복 영웅 자동 정규화(§6.3): 딜 main>playmaker>utility, 힐 main>utility>damage, 탱 brawl>poke>dive.
+- 점수: 티어(1000~8000)+디비전(+0~400) × 선호가중치(1.0/0.9/0.75).
+- **영웅 분류(2026-06-05 리워크)**: `comp`(dive/brawl/poke, 전역할·1~2개) + `func`(역할 내 기능). 마스터는 **DB**(`/app/admin`에서 편집), 분류 규율은 코드(`admin/schema.ts`).
+- **조합 패널티**(`COMBO_PENALTY`, 코드 상수): 탱 컨셉 응집(compMismatch) + within-role(딜 앵커·메인힐 부재·힐러 편중). 시너지 가점은 끔.
 - 5v5 우선, 드래프트는 팀장 2명이 포지션 먼저 지정 후 남은 8명 1-2-2-2-1 스네이크.
-- 결과 입력: 승팀·스코어 필수, 영웅 선택(자동완성).
+- 결과 입력: 승팀·스코어 필수, 영웅 선택(`<select>`, 배정 역할 영웅만).
