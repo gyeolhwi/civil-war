@@ -3,7 +3,8 @@
 // 흐름:
 //   /내전-프로필 → [설문 모달] 배틀태그 + 주/부 포지션 + 주/부 티어 (한 번에 제출)
 //     · 제출 시 검증(주≠부) + 저장 → 요약 메시지 + [등급][영웅][맵][수정][완료] 버튼
-//   [등급]/[영웅]/[맵] → 같은 메시지가 해당 화면으로 전환(UPDATE_MESSAGE), [↩️뒤로]로 복귀
+//   모든 화면 하단에 고정 탭바([등급][영웅][맵][수정][완료])가 깔려, 어느 화면에서든
+//   다른 화면으로 바로 전환(UPDATE_MESSAGE). 요약 왕복 없이 탭처럼 오간다.
 //   [수정] → 설문 모달 다시 (현재 값 프리필)
 //
 // 설문 모달은 한 번 제출이라 클릭마다 로딩이 없고, 모든 항목이 한눈에 보인다.
@@ -246,10 +247,31 @@ function button(style: number, label: string, emoji: string, customId: string) {
   return b;
 }
 
-function backRow() {
+/** 모든 화면 하단에 깔리는 고정 탭바. 어느 화면에서든 다른 화면으로 바로 이동.
+ *  current 화면 버튼은 비활성(disabled)으로 현재 위치를 표시한다. (5칸 = 1행) */
+function navRow(current?: "div" | "heroes" | "maps") {
+  const tab = (
+    label: string,
+    emoji: string,
+    customId: string,
+    active: boolean,
+  ) => {
+    const b = button(ButtonStyle.PRIMARY, label, emoji, customId) as Record<
+      string,
+      unknown
+    >;
+    if (active) b.disabled = true;
+    return b;
+  };
   return {
     type: ComponentType.ACTION_ROW,
-    components: [button(ButtonStyle.SECONDARY, "뒤로", "↩️", "reg:back")],
+    components: [
+      tab("등급", "🎚️", "reg:open_div", current === "div"),
+      tab("영웅", "⭐", "reg:open_heroes", current === "heroes"),
+      tab("맵", "🗺️", "reg:open_maps", current === "maps"),
+      button(ButtonStyle.SECONDARY, "수정", "✏️", "reg:edit"),
+      button(ButtonStyle.SUCCESS, "완료", "✅", "reg:done"),
+    ],
   };
 }
 
@@ -382,18 +404,7 @@ function profileResponse(callbackType: number, p: Profile, note?: string) {
     data: {
       content: profileSummary(p, note),
       flags: EPHEMERAL,
-      components: [
-        {
-          type: ComponentType.ACTION_ROW,
-          components: [
-            button(ButtonStyle.PRIMARY, "등급", "🎚️", "reg:open_div"),
-            button(ButtonStyle.PRIMARY, "선호 영웅", "⭐", "reg:open_heroes"),
-            button(ButtonStyle.PRIMARY, "선호 맵", "🗺️", "reg:open_maps"),
-            button(ButtonStyle.SECONDARY, "수정", "✏️", "reg:edit"),
-            button(ButtonStyle.SUCCESS, "완료", "✅", "reg:done"),
-          ],
-        },
-      ],
+      components: [navRow()],
     },
   };
 }
@@ -408,7 +419,7 @@ function divResponse(callbackType: number, p: Profile, note?: string) {
         content:
           "먼저 [수정]에서 포지션과 티어를 입력해주세요. 그다음 등급을 정할 수 있어요.",
         flags: EPHEMERAL,
-        components: [backRow()],
+        components: [navRow("div")],
       },
     };
   }
@@ -426,7 +437,7 @@ function divResponse(callbackType: number, p: Profile, note?: string) {
     data: {
       content: `🎚️ 포지션별 등급(디비전)을 골라주세요.\n${tierLines(p)}${note ? `\n${note}` : ""}`,
       flags: EPHEMERAL,
-      components: [...rows, backRow()],
+      components: [...rows, navRow("div")],
     },
   };
 }
@@ -460,7 +471,7 @@ function heroResponse(
     data: {
       content: `⭐ 선호 영웅 — 포지션과 무관하게 **전부 합쳐 최대 ${MAX_HEROES}개**만 저장돼요. (현재 ${p.heroCodes.length}/${MAX_HEROES})${note ? `\n${note}` : ""}`,
       flags: EPHEMERAL,
-      components: [...rows, backRow()],
+      components: [...rows, navRow("heroes")],
     },
   };
 }
@@ -511,7 +522,7 @@ function mapResponse(callbackType: number, p: Profile, ref: RefData) {
     data: {
       content: `🗺️ 선호 맵 — 모드별로 고르세요. (현재 ${p.mapCodes.length}개)`,
       flags: EPHEMERAL,
-      components: [...rows, backRow()],
+      components: [...rows, navRow("maps")],
     },
   };
 }
@@ -689,12 +700,6 @@ async function handleComponent(
   if (cid === "reg:edit") {
     const p = await loadProfile(sb, channelId, memberId);
     return surveyModal(p);
-  }
-
-  if (cid === "reg:back") {
-    const p = await loadProfile(sb, channelId, memberId);
-    if (!p) return ephemeral("프로필을 불러오지 못했어요.");
-    return profileResponse(CallbackType.UPDATE_MESSAGE, p);
   }
 
   // 등급 화면
