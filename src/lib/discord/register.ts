@@ -439,9 +439,13 @@ export async function handleRegister(
 
   const sb = createAdminClient();
 
+  // 모달은 defer(응답 지연)가 불가 → 3초 내 응답해야 한다.
   // 길드 ↔ 그룹 연결은 채널(그룹) 등록 시 discord_guild_id 로 설정한다.
-  // 디스코드에서 별도로 고르지 않는다(다른 그룹 노출 방지).
-  const channelId = await resolveChannelId(sb, interaction.guild_id);
+  // 채널·멤버 조회를 병렬로 돌려 응답 시간을 줄인다.
+  const [channelId, memberId] = await Promise.all([
+    resolveChannelId(sb, interaction.guild_id),
+    resolveMemberId(sb, discordUserId),
+  ]);
   if (!channelId) {
     return ephemeral(
       "이 서버는 아직 내전 채널과 연결되지 않았어요. 채널 관리자에게 문의해주세요.",
@@ -450,7 +454,6 @@ export async function handleRegister(
 
   // 1) 슬래시 `/등록` → 기본정보 모달 (기존값 프리필)
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
-    const memberId = await resolveMemberId(sb, discordUserId);
     const existing = memberId
       ? await loadExisting(sb, channelId, memberId)
       : null;
@@ -460,7 +463,6 @@ export async function handleRegister(
   // 2) 버튼 → 영웅/맵 모달 or 완료
   if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
     const cid = interaction.data?.custom_id;
-    const memberId = await resolveMemberId(sb, discordUserId);
     const existing = memberId
       ? await loadExisting(sb, channelId, memberId)
       : null;
