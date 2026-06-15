@@ -6,6 +6,13 @@ import { verifyDiscordRequest } from "@/lib/discord/verify";
 // 서명검증에 node:crypto 를 쓰므로 Edge 가 아닌 Node.js 런타임에서 실행.
 export const runtime = "nodejs";
 
+// 배포 버전 확인용. 등록된 엔드포인트 URL을 브라우저로 열면 이 값이 보인다.
+// 디스코드는 GET 을 쓰지 않으므로 동작에 영향 없음.
+const BUILD_MARKER = "reg-2026-06-15c-classic-modal-marker";
+export async function GET() {
+  return NextResponse.json({ ok: true, marker: BUILD_MARKER });
+}
+
 // Discord 인터랙션/콜백 타입 (공식 문서: Receiving & Responding)
 const InteractionType = {
   PING: 1,
