@@ -1,11 +1,12 @@
 // 디스코드 `/내전-프로필` — 오버워치 내전 프로필 등록/수정 (서버리스 / HTTP 인터랙션).
 //
 // 흐름:
-//   /내전-프로필 → [설문 모달] 배틀태그 + 주/부 포지션 + 주/부 티어 (한 번에 제출)
-//     · 제출 시 검증(주≠부) + 저장 → 요약 메시지 + [등급][영웅][맵][수정][완료] 버튼
-//   모든 화면 하단에 고정 탭바([등급][영웅][맵][수정][완료])가 깔려, 어느 화면에서든
+//   /내전-프로필 → [설문 모달] 배틀태그 + 주/부 포지션 + 주/부 랭크(티어+등급) (한 번 제출)
+//     · 랭크 = 티어+등급을 한 셀렉트에. 등급은 상/중/하 3단계(=1/3/5티어). 정밀 2·4는 웹.
+//     · 제출 시 검증(주≠부) + 저장 → 요약 메시지 + [영웅][맵][수정][완료] 버튼
+//   모든 화면 하단에 고정 탭바([영웅][맵][수정][완료])가 깔려, 어느 화면에서든
 //   다른 화면으로 바로 전환(UPDATE_MESSAGE). 요약 왕복 없이 탭처럼 오간다.
-//   [수정] → 설문 모달 다시 (현재 값 프리필)
+//   [수정] → 설문 모달 다시 (현재 값 프리필) — 포지션·티어·등급 전부 여기서 바꾼다.
 //
 // 설문 모달은 한 번 제출이라 클릭마다 로딩이 없고, 모든 항목이 한눈에 보인다.
 // ⚠️ 모달 안 셀렉트(Label, type 18)는 required 기본값이 true다. 선택형(min_values:0)
@@ -69,7 +70,6 @@ const MODE_EMOJI: Record<string, string> = {
 const MAX_HEROES = 5;
 const SELECT_OPTION_CAP = 25;
 const MAX_MAP_SELECTS = 4;
-const DEFAULT_DIVISION: Division = 3;
 
 const BATTLE_TAG_RE = /^.+#\d{3,}$/u;
 
@@ -249,7 +249,7 @@ function button(style: number, label: string, emoji: string, customId: string) {
 
 /** 모든 화면 하단에 깔리는 고정 탭바. 어느 화면에서든 다른 화면으로 바로 이동.
  *  current 화면 버튼은 비활성(disabled)으로 현재 위치를 표시한다. (5칸 = 1행) */
-function navRow(current?: "div" | "heroes" | "maps") {
+function navRow(current?: "heroes" | "maps") {
   const tab = (
     label: string,
     emoji: string,
@@ -266,7 +266,6 @@ function navRow(current?: "div" | "heroes" | "maps") {
   return {
     type: ComponentType.ACTION_ROW,
     components: [
-      tab("등급", "🎚️", "reg:open_div", current === "div"),
       tab("영웅", "⭐", "reg:open_heroes", current === "heroes"),
       tab("맵", "🗺️", "reg:open_maps", current === "maps"),
       button(ButtonStyle.SECONDARY, "수정", "✏️", "reg:edit"),
@@ -282,19 +281,38 @@ function roleOptions(selected: Role | null): Option[] {
     default: selected === r,
   }));
 }
-function tierOptions(selected: Tier | null): Option[] {
-  return TIER_ORDER.map((t) => ({
-    label: TIER_LABEL_KO[t],
-    value: t,
-    default: selected === t,
-  }));
+// 랭크 = 티어(브론즈~챔피언) + 등급(디비전). 모달 셀렉트 1칸에 다 담으려면 옵션이
+// 25개 이하라야 한다(8티어×5등급=40개는 초과). 그래서 등급을 상(1티어)/중(3티어)/
+// 하(5티어) 3단계로 묶어 8×3=24개로 맞춘다. 정밀한 2·4티어는 웹에서 조정.
+const RANK_BUCKETS: { level: string; division: Division }[] = [
+  { level: "상", division: 1 },
+  { level: "중", division: 3 },
+  { level: "하", division: 5 },
+];
+/** 정밀 디비전(1~5)을 모달 버킷(1/3/5)으로 환산. (1·2→1, 3→3, 4·5→5) */
+function rankBucket(d: Division): Division {
+  return d <= 2 ? 1 : d === 3 ? 3 : 5;
 }
-function divisionOptions(selected: Division | null): Option[] {
-  return ([5, 4, 3, 2, 1] as Division[]).map((d) => ({
-    label: `${d}티어`,
-    value: String(d),
-    default: selected === d,
-  }));
+function rankOptions(selected: RoleRating | null): Option[] {
+  const sel = selected ? rankBucket(selected.division) : null;
+  const opts: Option[] = [];
+  for (const t of TIER_ORDER) {
+    for (const { level, division } of RANK_BUCKETS) {
+      opts.push({
+        label: `${TIER_LABEL_KO[t]} ${level}`,
+        value: `${t}:${division}`,
+        default: selected?.tier === t && sel === division,
+      });
+    }
+  }
+  return opts; // 24개
+}
+function parseRank(v: string | undefined): RoleRating | null {
+  if (!v) return null;
+  const [t, d] = v.split(":");
+  const tier = asTier(t);
+  const division = asDivision(d);
+  return tier && division ? { tier, division } : null;
 }
 
 /** 역할별 티어·등급 가로 요약 ("탱커 : 마스터 4티어"). */
@@ -305,7 +323,7 @@ function tierLines(p: Profile): string {
   }).join("\n");
 }
 
-// ── 설문 모달 (배틀태그 + 주/부 포지션 + 주/부 티어) ──────────────────────
+// ── 설문 모달 (배틀태그 + 주/부 포지션 + 주/부 랭크) ──────────────────────
 /** 모달용 Label 래퍼. 셀렉트/텍스트입력을 감싼다. */
 function label(text: string, component: object) {
   return { type: ComponentType.LABEL, label: text, component };
@@ -337,11 +355,11 @@ function surveyModal(existing: Profile | null) {
   };
   if (existing?.battleTag) battle.value = existing.battleTag; // 빈 value 금지
 
-  const pTier = existing?.primaryRole
-    ? (existing.ratings[existing.primaryRole]?.tier ?? null)
+  const pRating = existing?.primaryRole
+    ? (existing.ratings[existing.primaryRole] ?? null)
     : null;
-  const sTier = existing?.secondaryRole
-    ? (existing.ratings[existing.secondaryRole]?.tier ?? null)
+  const sRating = existing?.secondaryRole
+    ? (existing.ratings[existing.secondaryRole] ?? null)
     : null;
 
   return {
@@ -360,6 +378,10 @@ function surveyModal(existing: Profile | null) {
           ),
         ),
         label(
+          "주 랭크 (티어 · 상/중/하)",
+          modalSelect("primary_rank", rankOptions(pRating), "안 골라도 됨"),
+        ),
+        label(
           "부 포지션 (주와 다르게)",
           modalSelect(
             "secondary_role",
@@ -368,12 +390,8 @@ function surveyModal(existing: Profile | null) {
           ),
         ),
         label(
-          "주 포지션 티어",
-          modalSelect("primary_tier", tierOptions(pTier), "티어 (선택)"),
-        ),
-        label(
-          "부 포지션 티어",
-          modalSelect("secondary_tier", tierOptions(sTier), "티어 (선택)"),
+          "부 랭크 (티어 · 상/중/하)",
+          modalSelect("secondary_rank", rankOptions(sRating), "안 골라도 됨"),
         ),
       ],
     },
@@ -392,7 +410,7 @@ function profileSummary(p: Profile, note?: string): string {
       .map((l) => `   ${l}`)
       .join("\n"),
     `· 선호 영웅 ${p.heroCodes.length}개   · 선호 맵 ${p.mapCodes.length}개`,
-    "수정하려면 [수정], 등급·영웅·맵은 각 버튼에서.",
+    "포지션·티어·등급은 [수정], 영웅·맵은 각 탭에서.",
   ];
   if (note) lines.push(`\n${note}`);
   return lines.join("\n");
@@ -405,39 +423,6 @@ function profileResponse(callbackType: number, p: Profile, note?: string) {
       content: profileSummary(p, note),
       flags: EPHEMERAL,
       components: [navRow()],
-    },
-  };
-}
-
-/** 등급(디비전) 화면 — 티어가 입력된 포지션별 등급 셀렉트. */
-function divResponse(callbackType: number, p: Profile, note?: string) {
-  const roles = ROLES.filter((r) => p.ratings[r]);
-  if (!roles.length) {
-    return {
-      type: callbackType,
-      data: {
-        content:
-          "먼저 [수정]에서 포지션과 티어를 입력해주세요. 그다음 등급을 정할 수 있어요.",
-        flags: EPHEMERAL,
-        components: [navRow("div")],
-      },
-    };
-  }
-  const rows = roles.map((r) =>
-    selectRow(
-      `reg:div_${r}`,
-      `${ROLE_LABEL_KO[r]} 등급(디비전)`,
-      divisionOptions(p.ratings[r]?.division ?? null),
-      0,
-      1,
-    ),
-  );
-  return {
-    type: callbackType,
-    data: {
-      content: `🎚️ 포지션별 등급(디비전)을 골라주세요.\n${tierLines(p)}${note ? `\n${note}` : ""}`,
-      flags: EPHEMERAL,
-      components: [...rows, navRow("div")],
     },
   };
 }
@@ -628,8 +613,8 @@ async function handleSurveySubmit(
   }
   const primaryRole = asRole(firstValue(sub, "primary_role"));
   let secondaryRole = asRole(firstValue(sub, "secondary_role"));
-  const pTier = asTier(firstValue(sub, "primary_tier"));
-  const sTier = asTier(firstValue(sub, "secondary_tier"));
+  const pRank = parseRank(firstValue(sub, "primary_rank"));
+  const sRank = parseRank(firstValue(sub, "secondary_rank"));
 
   // 주/부 포지션이 같으면 부 포지션은 비운다.
   let note: string | undefined;
@@ -652,21 +637,27 @@ async function handleSurveySubmit(
   });
   if (!cm.ok) return ephemeral(`저장 실패: ${cm.error}`);
 
-  // 포지션별 티어 저장 (등급은 기존값 또는 기본값). 티어 미입력이면 건너뜀.
+  // 포지션별 티어+등급 저장. 랭크 미입력이면 건너뜀.
+  // 웹에서 정밀 설정한 등급(2·4티어) 보호: 모달 버킷(1/3/5)이 기존 등급과 같은
+  // 버킷이면 기존 정밀값을 유지하고, 버킷이 바뀐 경우에만 새 값으로 덮는다.
   const existing = await loadProfile(sb, channelId, memberId);
-  for (const [role, tier] of [
-    [primaryRole, pTier],
-    [secondaryRole, sTier],
+  for (const [role, rank] of [
+    [primaryRole, pRank],
+    [secondaryRole, sRank],
   ] as const) {
-    if (role && tier) {
-      const div = existing?.ratings[role]?.division ?? DEFAULT_DIVISION;
+    if (role && rank) {
+      const ex = existing?.ratings[role];
+      const division =
+        ex && ex.tier === rank.tier && rankBucket(ex.division) === rank.division
+          ? ex.division
+          : rank.division;
       const rr = await upsertRoleRating(
         sb,
         channelId,
         memberId,
         role,
-        tier,
-        div,
+        rank.tier,
+        division,
       );
       if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
     }
@@ -700,33 +691,6 @@ async function handleComponent(
   if (cid === "reg:edit") {
     const p = await loadProfile(sb, channelId, memberId);
     return surveyModal(p);
-  }
-
-  // 등급 화면
-  if (cid === "reg:open_div") {
-    const p = await loadProfile(sb, channelId, memberId);
-    if (!p) return ephemeral("프로필을 불러오지 못했어요.");
-    return divResponse(CallbackType.UPDATE_MESSAGE, p);
-  }
-  if (cid.startsWith("reg:div_")) {
-    const role = asRole(cid.slice("reg:div_".length));
-    const division = asDivision(values[0]);
-    const p = await loadProfile(sb, channelId, memberId);
-    if (!p || !role) return ephemeral("프로필을 불러오지 못했어요.");
-    const curTier = p.ratings[role]?.tier;
-    if (division && curTier) {
-      const rr = await upsertRoleRating(
-        sb,
-        channelId,
-        memberId,
-        role,
-        curTier,
-        division,
-      );
-      if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
-      p.ratings[role] = { tier: curTier, division };
-    }
-    return divResponse(CallbackType.UPDATE_MESSAGE, p);
   }
 
   // 영웅/맵 화면
