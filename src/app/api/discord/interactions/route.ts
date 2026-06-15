@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { handleRegister } from "@/lib/discord/register";
 import { addReaction, postChannelMessage } from "@/lib/discord/rest";
 import { verifyDiscordRequest } from "@/lib/discord/verify";
 
@@ -6,7 +7,12 @@ import { verifyDiscordRequest } from "@/lib/discord/verify";
 export const runtime = "nodejs";
 
 // Discord 인터랙션/콜백 타입 (공식 문서: Receiving & Responding)
-const InteractionType = { PING: 1, APPLICATION_COMMAND: 2 } as const;
+const InteractionType = {
+  PING: 1,
+  APPLICATION_COMMAND: 2,
+  MESSAGE_COMPONENT: 3,
+  MODAL_SUBMIT: 5,
+} as const;
 const CallbackType = { PONG: 1, CHANNEL_MESSAGE_WITH_SOURCE: 4 } as const;
 const EPHEMERAL = 64; // 응답을 명령 실행자에게만 보이게 하는 플래그
 
@@ -16,6 +22,7 @@ interface DiscordInteraction {
   channel?: { id?: string };
   data?: {
     name?: string;
+    custom_id?: string;
     options?: { name: string; value?: string | number | boolean }[];
   };
 }
@@ -103,9 +110,26 @@ export async function POST(request: Request) {
     if (interaction.data?.name === "내전") {
       return handleNaejeon(interaction);
     }
+    if (interaction.data?.name === "등록") {
+      return NextResponse.json(await handleRegister(interaction));
+    }
     return NextResponse.json({
       type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: { content: "알 수 없는 명령이에요.", flags: EPHEMERAL },
+    });
+  }
+
+  // 등록 위저드의 버튼/모달 제출 (custom_id 가 reg: 로 시작)
+  if (
+    interaction.type === InteractionType.MESSAGE_COMPONENT ||
+    interaction.type === InteractionType.MODAL_SUBMIT
+  ) {
+    if (interaction.data?.custom_id?.startsWith("reg:")) {
+      return NextResponse.json(await handleRegister(interaction));
+    }
+    return NextResponse.json({
+      type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: "알 수 없는 동작이에요.", flags: EPHEMERAL },
     });
   }
 

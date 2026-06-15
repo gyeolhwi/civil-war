@@ -30,6 +30,10 @@ const commands = [
       { name: "시간", description: "내전 시간 (예: 21:00)", type: 3, required: true },
     ],
   },
+  {
+    name: "등록",
+    description: "내전 멤버 등록/수정 (배틀태그·포지션·티어·선호 영웅·맵)",
+  },
 ];
 
 const res = await fetch(
