@@ -252,28 +252,25 @@ function divisionOptions(selected: Division | null): Option[] {
  * 나므로 쓰지 않는다. 포지션·티어 등 선택값은 제출 후 메시지 셀렉트로 받는다.
  */
 function basicModal(existing: ExistingProfile | null) {
+  // 빈 value 는 min_length 와 모순돼 모달이 거부될 수 있으므로 값이 있을 때만 넣는다.
+  const textInput: Record<string, unknown> = {
+    type: ComponentType.TEXT_INPUT,
+    custom_id: "battle_tag",
+    label: "배틀태그 (예: 홍길동#1234)",
+    style: TextInputStyle.SHORT,
+    required: true,
+    min_length: 3,
+    max_length: 30,
+    placeholder: "이름#숫자",
+  };
+  if (existing?.battleTag) textInput.value = existing.battleTag;
   return {
     type: CallbackType.MODAL,
     data: {
       custom_id: "reg:basic",
       title: "내전 멤버 등록",
       components: [
-        {
-          type: ComponentType.ACTION_ROW,
-          components: [
-            {
-              type: ComponentType.TEXT_INPUT,
-              custom_id: "battle_tag",
-              label: "배틀태그 (예: 홍길동#1234)",
-              style: TextInputStyle.SHORT,
-              required: true,
-              min_length: 3,
-              max_length: 30,
-              value: existing?.battleTag ?? "",
-              placeholder: "이름#숫자",
-            },
-          ],
-        },
+        { type: ComponentType.ACTION_ROW, components: [textInput] },
       ],
     },
   };
