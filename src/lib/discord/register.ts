@@ -428,10 +428,24 @@ const InteractionType = {
   MODAL_SUBMIT: 5,
 } as const;
 
-/** `/등록` 관련 인터랙션 처리. 반환값은 인터랙션 응답 body. */
+/**
+ * `/등록` 관련 인터랙션 처리. 반환값은 인터랙션 응답 body.
+ * 예외는 타임아웃("적시에 응답하지 않음") 대신 ephemeral 에러로 노출해
+ * 원인을 즉시 확인할 수 있게 한다 (모달은 defer 불가라 3초 내 응답 필수).
+ */
 export async function handleRegister(
   interaction: Interaction,
 ): Promise<object> {
+  try {
+    return await handleRegisterInner(interaction);
+  } catch (e) {
+    return ephemeral(
+      `등록 처리 중 오류: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+}
+
+async function handleRegisterInner(interaction: Interaction): Promise<object> {
   const user = getUser(interaction);
   const discordUserId = user?.id;
   if (!discordUserId)
