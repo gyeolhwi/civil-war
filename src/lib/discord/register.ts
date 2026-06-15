@@ -316,6 +316,7 @@ function profileResponse(callbackType: number, p: Profile, note?: string) {
           components: [
             button(ButtonStyle.PRIMARY, "선호 영웅", "⭐", "reg:open_heroes"),
             button(ButtonStyle.PRIMARY, "선호 맵", "🗺️", "reg:open_maps"),
+            button(ButtonStyle.SECONDARY, "배틀태그 수정", "✏️", "reg:edit_tag"),
             button(ButtonStyle.SUCCESS, "완료", "✅", "reg:done"),
           ],
         },
@@ -351,7 +352,7 @@ function heroResponse(
   return {
     type: callbackType,
     data: {
-      content: `⭐ 선호 영웅 (전체 합쳐 최대 ${MAX_HEROES}개) — 현재 ${p.heroCodes.length}개${note ? `\n${note}` : ""}`,
+      content: `⭐ 선호 영웅 — 포지션과 무관하게 **전부 합쳐 최대 ${MAX_HEROES}개**만 저장돼요. (현재 ${p.heroCodes.length}/${MAX_HEROES})\n역할별 드롭다운에서 고르면 합산됩니다.${note ? `\n${note}` : ""}`,
       flags: EPHEMERAL,
       components: rows,
     },
@@ -451,11 +452,6 @@ async function handleRegisterInner(interaction: Interaction): Promise<object> {
   if (!discordUserId)
     return ephemeral("디스코드 사용자 정보를 찾을 수 없어요.");
 
-  // 슬래시 `/등록` → 즉시 배틀태그 모달 (DB 미접근, 3초 한도 회피).
-  if (interaction.type === InteractionType.APPLICATION_COMMAND) {
-    return basicModal(null);
-  }
-
   const sb = createAdminClient();
   const [channelId, memberId] = await Promise.all([
     resolveChannelId(sb, interaction.guild_id),
@@ -465,6 +461,18 @@ async function handleRegisterInner(interaction: Interaction): Promise<object> {
     return ephemeral(
       "이 서버는 아직 내전 채널과 연결되지 않았어요. 채널 관리자에게 문의해주세요.",
     );
+  }
+
+  // 슬래시: 이미 등록된 계정이면 곧장 수정 화면(배틀태그 다시 안 물음).
+  // 신규 계정이면 배틀태그 입력 모달.
+  if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+    if (memberId) {
+      await ensureChannelMembership(sb, channelId, memberId);
+      const p = await loadProfile(sb, channelId, memberId);
+      if (p)
+        return profileResponse(CallbackType.CHANNEL_MESSAGE_WITH_SOURCE, p);
+    }
+    return basicModal(null);
   }
 
   if (interaction.type === InteractionType.MODAL_SUBMIT) {
@@ -527,6 +535,12 @@ async function handleComponent(
     );
   }
 
+  // 배틀태그 수정 → 프리필된 모달 (버튼 → 모달 허용)
+  if (cid === "reg:edit_tag") {
+    const p = await loadProfile(sb, channelId, memberId);
+    return basicModal(p);
+  }
+
   // 포지션 — 해당 컬럼만 갱신 (다른 값 보존)
   if (cid === "reg:primary" || cid === "reg:secondary") {
     const field = cid === "reg:primary" ? "primary_role" : "secondary_role";
@@ -585,21 +599,19 @@ async function handleComponent(
       loadProfile(sb, channelId, memberId),
     ]);
     if (!p || !role) return ephemeral("프로필을 불러오지 못했어요.");
-    // 이 역할의 기존 선택을 빼고 새 선택으로 교체 (다른 역할 영웅은 보존)
-    const kept = p.heroCodes.filter((c) => ref.heroByCode[c]?.role !== role);
-    const next = [...kept, ...values];
+    // 이 역할의 기존 선택을 빼고 새 선택으로 교체 (다른 역할 영웅은 보존).
+    // 합쳐 5개 초과면 거부 대신 방금 고른 것 우선으로 잘라 저장(관대 처리).
+    const others = p.heroCodes.filter((c) => ref.heroByCode[c]?.role !== role);
+    let next = [...values, ...others];
+    let note: string | undefined;
     if (next.length > MAX_HEROES) {
-      return heroResponse(
-        CallbackType.UPDATE_MESSAGE,
-        p,
-        ref,
-        `⚠️ 전체 합쳐 최대 ${MAX_HEROES}개예요 (지금 ${next.length}개). 저장 안 됨.`,
-      );
+      next = next.slice(0, MAX_HEROES);
+      note = `⚠️ 합쳐 ${MAX_HEROES}개까지만 저장돼요. 다른 역할 일부는 제외했어요.`;
     }
     const r = await replaceHeroPrefs(sb, channelId, memberId, next);
     if (!r.ok) return ephemeral(`저장 실패: ${r.error}`);
     p.heroCodes = next;
-    return heroResponse(CallbackType.UPDATE_MESSAGE, p, ref);
+    return heroResponse(CallbackType.UPDATE_MESSAGE, p, ref, note);
   }
 
   if (cid.startsWith("reg:map_")) {

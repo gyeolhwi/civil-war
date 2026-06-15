@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 // 배포 버전 확인용. 등록된 엔드포인트 URL을 브라우저로 열면 이 값이 보인다.
 // 디스코드는 GET 을 쓰지 않으므로 동작에 영향 없음.
-const BUILD_MARKER = "reg-2026-06-15d-message-selects";
+const BUILD_MARKER = "reg-2026-06-15e-profile-edit";
 export async function GET() {
   return NextResponse.json({ ok: true, marker: BUILD_MARKER });
 }
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
     if (interaction.data?.name === "내전") {
       return handleNaejeon(interaction);
     }
-    if (interaction.data?.name === "등록") {
+    if (interaction.data?.name === "내전-프로필") {
       return NextResponse.json(await handleRegister(interaction));
     }
     return NextResponse.json({
