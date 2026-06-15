@@ -3,11 +3,11 @@
 // 흐름 (모든 응답은 인터랙션 HTTP 응답, 추가 REST 호출 없음):
 //   /내전-프로필 ─APPLICATION_COMMAND→ (기존 계정) 메인 화면 / (신규) 배틀태그 모달
 //   메인 화면: 닉네임·배틀태그·현황 요약 + 주 포지션 셀렉트 + 부 포지션 셀렉트
-//             + [티어][등급][영웅][맵] / [배틀태그][완료]
+//             + [티어·등급][영웅][맵][배틀태그][완료]
 //             · 포지션은 셀렉트 1개씩(placeholder=라벨). "선택 안 함"으로 해제, 주≠부 강제.
-//   [티어]/[등급]/[영웅]/[맵] → 같은 메시지가 해당 화면으로 전환(UPDATE_MESSAGE), [↩️뒤로]
-//     · 티어 화면: 탱·딜·힐 3역할 티어 셀렉트. 등급 화면: 3역할 등급 셀렉트(토글·탭 없음).
-//       3역할 티어+등급(6셀렉트)은 5행 초과라 [티어]/[등급] 버튼 두 화면으로 분리(평탄).
+//   [티어·등급]/[영웅]/[맵] → 같은 메시지가 해당 화면으로 전환(UPDATE_MESSAGE), [↩️뒤로]
+//     · 티어·등급 화면: 한 역할의 티어+등급을 함께. 위 역할 탭(탱/딜/힐)으로 역할 전환.
+//       3역할×(티어+등급)=6셀렉트가 5행을 넘으므로 역할 단위로 본다(어느 역할인지 제목·탭).
 //
 // 누구나(권한 무관) 본인 프로필을 등록/수정. 채널은 guild_id → channels.discord_guild_id.
 // 멤버는 discord_user_id 로 식별 → 재실행 시 본인 행을 찾아 수정.
@@ -363,15 +363,9 @@ function profileResponse(callbackType: number, p: Profile, note?: string) {
     {
       type: ComponentType.ACTION_ROW,
       components: [
-        button(ButtonStyle.PRIMARY, "티어", "🏅", "reg:open_tier"),
-        button(ButtonStyle.PRIMARY, "등급", "🎚️", "reg:open_div"),
+        button(ButtonStyle.PRIMARY, "티어·등급", "🏅", "reg:open_tier"),
         button(ButtonStyle.PRIMARY, "선호 영웅", "⭐", "reg:open_heroes"),
         button(ButtonStyle.PRIMARY, "선호 맵", "🗺️", "reg:open_maps"),
-      ],
-    },
-    {
-      type: ComponentType.ACTION_ROW,
-      components: [
         button(ButtonStyle.SECONDARY, "배틀태그", "✏️", "reg:edit_tag"),
         button(ButtonStyle.SUCCESS, "완료", "✅", "reg:done"),
       ],
@@ -387,50 +381,36 @@ function profileResponse(callbackType: number, p: Profile, note?: string) {
   };
 }
 
-/**
- * 티어 화면 — 탱·딜·힐 3역할 티어 셀렉트를 한 화면에(역할 제한 없음).
- * 3셀렉트 + 뒤로 = 4행. 등급(디비전)은 별도 [등급] 버튼 화면에서.
- */
-function tierResponse(callbackType: number, p: Profile, note?: string) {
-  const rows = ROLES.map((r) =>
-    selectRow(
-      `reg:tier_${r}`,
-      `${ROLE_LABEL_KO[r]} 티어`,
-      tierOptions(p.ratings[r]?.tier ?? null),
-      0,
-      1,
-    ),
-  );
-  const head = [
-    "🏅 **티어** — 역할별로 고르세요. 안 고른 역할은 미기재.",
-    tierLines(p),
-  ].join("\n");
+/** 티어·등급 화면의 역할 탭 — 현재 편집 중인 역할은 초록+✅. */
+function roleTabRow(active: Role) {
   return {
-    type: callbackType,
-    data: {
-      content: `${head}${note ? `\n${note}` : ""}`,
-      flags: EPHEMERAL,
-      components: [...rows, backRow()],
-    },
+    type: ComponentType.ACTION_ROW,
+    components: ROLES.map((r) =>
+      button(
+        active === r ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+        ROLE_LABEL_KO[r],
+        active === r ? "✅" : "",
+        `reg:trole:${r}`,
+      ),
+    ),
   };
 }
 
 /**
- * 등급(디비전) 화면 — 탱·딜·힐 3역할 등급 셀렉트를 한 화면에.
- * 등급은 그 역할 티어가 먼저 있어야 저장된다(없으면 안내).
+ * 티어·등급 화면 — 한 역할의 티어+등급을 함께(분리 X). 위 탭으로 역할 전환.
+ * 어느 역할인지 제목·탭·셀렉트 라벨로 분명히 한다. (탭은 같은 화면 내 전환)
+ * 역할 탭(1) + 티어(1) + 등급(1) + 뒤로(1) = 4행. 3역할 6셀렉트가 5행을 넘어
+ * 한 화면에 못 담기 때문에 역할 단위로 본다.
  */
-function divResponse(callbackType: number, p: Profile, note?: string) {
-  const rows = ROLES.map((r) =>
-    selectRow(
-      `reg:div_${r}`,
-      `${ROLE_LABEL_KO[r]} 등급`,
-      divisionOptions(p.ratings[r]?.division ?? null),
-      0,
-      1,
-    ),
-  );
+function tierResponse(
+  callbackType: number,
+  p: Profile,
+  active: Role,
+  note?: string,
+) {
+  const cur = p.ratings[active];
   const head = [
-    "🎚️ **등급** — 역할별로 고르세요. 티어를 먼저 정한 역할만 저장돼요.",
+    `🏅 **${ROLE_LABEL_KO[active]}** 티어·등급 (위 탭에서 역할 전환)`,
     tierLines(p),
   ].join("\n");
   return {
@@ -438,7 +418,24 @@ function divResponse(callbackType: number, p: Profile, note?: string) {
     data: {
       content: `${head}${note ? `\n${note}` : ""}`,
       flags: EPHEMERAL,
-      components: [...rows, backRow()],
+      components: [
+        roleTabRow(active),
+        selectRow(
+          `reg:tier_${active}`,
+          `${ROLE_LABEL_KO[active]} 티어`,
+          tierOptions(cur?.tier ?? null),
+          0,
+          1,
+        ),
+        selectRow(
+          `reg:div_${active}`,
+          `${ROLE_LABEL_KO[active]} 등급`,
+          divisionOptions(cur?.division ?? null),
+          0,
+          1,
+        ),
+        backRow(),
+      ],
     },
   };
 }
@@ -704,18 +701,23 @@ async function handleComponent(
     return profileResponse(CallbackType.UPDATE_MESSAGE, p);
   }
 
-  // 티어 화면 (3역할 한 화면)
+  // 티어·등급 화면 열기. 기본 편집 역할 = 주 포지션 ?? 탱커.
   if (cid === "reg:open_tier") {
     const p = await loadProfile(sb, channelId, memberId);
     if (!p) return ephemeral("프로필을 불러오지 못했어요.");
-    return tierResponse(CallbackType.UPDATE_MESSAGE, p);
+    return tierResponse(
+      CallbackType.UPDATE_MESSAGE,
+      p,
+      p.primaryRole ?? "tank",
+    );
   }
 
-  // 등급 화면 (3역할 한 화면)
-  if (cid === "reg:open_div") {
+  // 역할 탭 전환 (같은 화면)
+  if (cid.startsWith("reg:trole:")) {
+    const role = asRole(cid.slice("reg:trole:".length));
     const p = await loadProfile(sb, channelId, memberId);
-    if (!p) return ephemeral("프로필을 불러오지 못했어요.");
-    return divResponse(CallbackType.UPDATE_MESSAGE, p);
+    if (!p || !role) return ephemeral("프로필을 불러오지 못했어요.");
+    return tierResponse(CallbackType.UPDATE_MESSAGE, p, role);
   }
 
   // 역할별 티어 — 등급(디비전)은 기존값 또는 기본값
@@ -737,7 +739,7 @@ async function handleComponent(
       if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
       p.ratings[role] = { tier, division };
     }
-    return tierResponse(CallbackType.UPDATE_MESSAGE, p);
+    return tierResponse(CallbackType.UPDATE_MESSAGE, p, role);
   }
 
   // 역할별 등급(디비전) — 그 역할 티어가 먼저 있어야 함
@@ -758,12 +760,13 @@ async function handleComponent(
       );
       if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
       p.ratings[role] = { tier: curTier, division };
-      return divResponse(CallbackType.UPDATE_MESSAGE, p);
+      return tierResponse(CallbackType.UPDATE_MESSAGE, p, role);
     }
-    return divResponse(
+    return tierResponse(
       CallbackType.UPDATE_MESSAGE,
       p,
-      `⚠️ ${role ? ROLE_LABEL_KO[role] : ""} 티어를 [티어]에서 먼저 정해주세요.`,
+      role,
+      "⚠️ 위 티어를 먼저 고르면 등급이 저장돼요.",
     );
   }
 
