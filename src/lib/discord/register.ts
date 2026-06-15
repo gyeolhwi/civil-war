@@ -7,7 +7,8 @@
 //   [수정] → 설문 모달 다시 (현재 값 프리필)
 //
 // 설문 모달은 한 번 제출이라 클릭마다 로딩이 없고, 모든 항목이 한눈에 보인다.
-// ⚠️ 모달 안 셀렉트(Label, type 18)는 빈 value가 없으면 동작한다(빈 value는 거부 원인).
+// ⚠️ 모달 안 셀렉트(Label, type 18)는 required 기본값이 true다. 선택형(min_values:0)
+//    으로 쓰려면 required:false 를 반드시 줘야 한다(안 주면 모순 → 모달 거부).
 // 누구나(권한 무관) 본인 프로필을 등록/수정. 채널은 guild_id → channels.discord_guild_id.
 // 웹 멤버폼과 표기 통일: 역할=돌격/공격/지원, 등급="N티어", 맵=모드별.
 
@@ -292,6 +293,10 @@ function modalSelect(customId: string, options: Option[], placeholder: string) {
     type: ComponentType.STRING_SELECT,
     custom_id: customId,
     placeholder,
+    // 모달 셀렉트의 required 기본값은 true이고, required가 true면 min_values는
+    // 1 이상이어야 한다. 선택(포지션·티어)이라 min_values:0 → required:false 필수.
+    // (이걸 빼면 모순 페이로드라 Discord가 모달을 거부 → "응답하지 않았어요".)
+    required: false,
     min_values: 0,
     max_values: 1,
     options,
