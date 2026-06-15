@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 // 배포 버전 확인용. 등록된 엔드포인트 URL을 브라우저로 열면 이 값이 보인다.
 // 디스코드는 GET 을 쓰지 않으므로 동작에 영향 없음.
-const BUILD_MARKER = "reg-2026-06-15s-pos-selects-flat-tier";
+const BUILD_MARKER = "reg-2026-06-15t-tier-div-split-allroles-cache";
 export async function GET() {
   return NextResponse.json({ ok: true, marker: BUILD_MARKER });
 }
@@ -108,12 +108,6 @@ export async function POST(request: Request) {
 
   const interaction = JSON.parse(rawBody) as DiscordInteraction;
 
-  // 웹 멤버폼 링크용 베이스 URL (인터랙션 엔드포인트와 같은 도메인).
-  const host =
-    request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  const proto = request.headers.get("x-forwarded-proto") ?? "https";
-  const baseUrl = host ? `${proto}://${host}` : undefined;
-
   // Discord 엔드포인트 등록 검증용 PING → PONG
   if (interaction.type === InteractionType.PING) {
     return NextResponse.json({ type: CallbackType.PONG });
@@ -124,7 +118,7 @@ export async function POST(request: Request) {
       return handleNaejeon(interaction);
     }
     if (interaction.data?.name === "내전-프로필") {
-      return NextResponse.json(await handleRegister(interaction, baseUrl));
+      return NextResponse.json(await handleRegister(interaction));
     }
     return NextResponse.json({
       type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -138,7 +132,7 @@ export async function POST(request: Request) {
     interaction.type === InteractionType.MODAL_SUBMIT
   ) {
     if (interaction.data?.custom_id?.startsWith("reg:")) {
-      return NextResponse.json(await handleRegister(interaction, baseUrl));
+      return NextResponse.json(await handleRegister(interaction));
     }
     return NextResponse.json({
       type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
