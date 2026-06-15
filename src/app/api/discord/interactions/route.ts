@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { handleRegister } from "@/lib/discord/register";
+import { handleRegister, resolveChannelId } from "@/lib/discord/register";
 import { addReaction, postChannelMessage } from "@/lib/discord/rest";
 import { verifyDiscordRequest } from "@/lib/discord/verify";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // 서명검증에 node:crypto 를 쓰므로 Edge 가 아닌 Node.js 런타임에서 실행.
 export const runtime = "nodejs";
@@ -25,6 +26,7 @@ const EPHEMERAL = 64; // 응답을 명령 실행자에게만 보이게 하는 �
 
 interface DiscordInteraction {
   type: number;
+  guild_id?: string;
   channel_id?: string;
   channel?: { id?: string };
   data?: {
@@ -34,6 +36,34 @@ interface DiscordInteraction {
   };
 }
 
+/** KST 기준 "오늘 0시"의 UTC ISO 문자열 — 프리셋 번호 일별 초기화용. */
+function startOfKstTodayIso(): string {
+  const KST = 9 * 60 * 60 * 1000;
+  const kstNow = new Date(Date.now() + KST);
+  const kstMidnight = Date.UTC(
+    kstNow.getUTCFullYear(),
+    kstNow.getUTCMonth(),
+    kstNow.getUTCDate(),
+  );
+  return new Date(kstMidnight - KST).toISOString();
+}
+
+/**
+ * 채널의 오늘(KST) 프리셋 다음 순번. 동시 실행 시 드물게 중복될 수 있으나
+ * 프리셋은 id(uuid)로 식별하고 code는 표시·선택 편의용이라 허용한다.
+ */
+async function nextPresetCode(
+  sb: ReturnType<typeof createAdminClient>,
+  channelId: string,
+): Promise<number> {
+  const { count } = await sb
+    .from("match_presets")
+    .select("id", { count: "exact", head: true })
+    .eq("channel_id", channelId)
+    .gte("created_at", startOfKstTodayIso());
+  return (count ?? 0) + 1;
+}
+
 /** `/내전 날짜 시간` — 모집 공지 임베드를 채널에 올리고 ✅ 를 자동으로 단다. */
 async function handleNaejeon(interaction: DiscordInteraction) {
   const options = interaction.data?.options ?? [];
@@ -41,9 +71,9 @@ async function handleNaejeon(interaction: DiscordInteraction) {
     options.find((o) => o.name === name)?.value ?? "";
   const date = String(get("날짜"));
   const time = String(get("시간"));
-  const channelId = interaction.channel_id ?? interaction.channel?.id;
+  const discordChannelId = interaction.channel_id ?? interaction.channel?.id;
 
-  if (!channelId) {
+  if (!discordChannelId) {
     return NextResponse.json({
       type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: { content: "채널 정보를 찾을 수 없어요.", flags: EPHEMERAL },
@@ -51,8 +81,18 @@ async function handleNaejeon(interaction: DiscordInteraction) {
   }
 
   try {
+    // 프리셋(웹 자동선택용)을 위해 길드 → 내전 채널을 먼저 해석한다.
+    // 채널 미연결이면 프리셋 없이 공지만 올린다.
+    const sb = createAdminClient();
+    const channelId = await resolveChannelId(sb, interaction.guild_id);
+    const code = channelId ? await nextPresetCode(sb, channelId) : null;
+
+    const presetNote = code
+      ? `프리셋 #${code} · 웹 "내전 시작 → 프리셋 불러오기"로 ✅ 참가자 자동 선택`
+      : undefined;
+
     // 인터랙션 응답이 아니라 봇 REST 메시지로 올려야 message.id 를 받아 ✅ 를 달 수 있다.
-    const message = await postChannelMessage(channelId, {
+    const message = await postChannelMessage(discordChannelId, {
       embeds: [
         {
           title: "🎮 오버워치 내전 모집",
@@ -62,13 +102,31 @@ async function handleNaejeon(interaction: DiscordInteraction) {
             { name: "📅 날짜", value: date, inline: true },
             { name: "⏰ 시간", value: time, inline: true },
           ],
+          ...(presetNote ? { footer: { text: presetNote } } : {}),
         },
       ],
     });
-    await addReaction(channelId, message.id, "✅");
+    await addReaction(discordChannelId, message.id, "✅");
+
+    // 프리셋 저장 (메시지 게시 후). 실패해도 공지는 이미 올라갔으므로 무시.
+    if (channelId && code) {
+      await sb.from("match_presets").insert({
+        channel_id: channelId,
+        code,
+        label: `${date} ${time}`.trim(),
+        discord_channel_id: discordChannelId,
+        discord_message_id: message.id,
+      });
+    }
+
     return NextResponse.json({
       type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: "✅ 내전 공지를 올렸어요!", flags: EPHEMERAL },
+      data: {
+        content: code
+          ? `✅ 내전 공지를 올렸어요! (프리셋 #${code})`
+          : "✅ 내전 공지를 올렸어요!",
+        flags: EPHEMERAL,
+      },
     });
   } catch (e) {
     return NextResponse.json({

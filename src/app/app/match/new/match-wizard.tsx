@@ -15,6 +15,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   HeroImage,
   MapImage,
   ModeIcon,
@@ -45,10 +52,12 @@ import {
   selectMap,
 } from "@/domain/team-builder";
 import type { BuildMode, Role } from "@/domain/types";
+import type { MatchPreset } from "@/lib/presets";
 import { cn } from "@/lib/utils";
 import {
   type CreateMatchInput,
   createMatch,
+  loadPresetMembers,
   type SavedMatch,
   saveResult,
   updateMapBan,
@@ -169,7 +178,13 @@ function toBanTeam(t: BuiltTeam, byId: Map<string, Participant>): BanTeam {
   };
 }
 
-export function MatchWizard({ participants }: { participants: Participant[] }) {
+export function MatchWizard({
+  participants,
+  presets,
+}: {
+  participants: Participant[];
+  presets: MatchPreset[];
+}) {
   const router = useRouter();
   const { heroByCode, mapByCode, heroes, maps } = useRefData();
   const activeMapCodes = maps.filter((m) => m.isActive).map((m) => m.code);
@@ -185,6 +200,8 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
   const [selectSort, setSelectSort] = useState<"role" | "score" | "joined">(
     "role",
   );
+  const [presetOpen, setPresetOpen] = useState(false);
+  const [presetLoadingId, setPresetLoadingId] = useState<string | null>(null);
   const [mode, setMode] = useState<BuildMode>("basic");
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [saved, setSaved] = useState<SavedMatch | null>(null);
@@ -227,6 +244,33 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
           ? prev
           : [...prev, id],
     );
+  }
+
+  /** 프리셋(✅ 반응자)으로 참가자 자동 선택. 최대 10명까지 채운다. */
+  function applyPreset(preset: MatchPreset) {
+    setPresetLoadingId(preset.id);
+    loadPresetMembers(preset.id)
+      .then((res) => {
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        const valid = res.data.memberIds.filter((id) => byId.has(id));
+        setSelected(valid.slice(0, 10));
+        setPresetOpen(false);
+        const capped = valid.length > 10 ? " (10명 초과분 제외)" : "";
+        const skipped =
+          res.data.unmatchedCount > 0
+            ? ` · 미등록 ${res.data.unmatchedCount}명 제외`
+            : "";
+        if (valid.length === 0) {
+          toast.error("✅ 참가자 중 등록된 멤버가 없어요");
+        } else {
+          toast.success(`${valid.length}명 선택했어요${capped}${skipped}`);
+        }
+      })
+      .catch(() => toast.error("프리셋을 불러오지 못했습니다"))
+      .finally(() => setPresetLoadingId(null));
   }
 
   function build() {
@@ -490,12 +534,22 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
     return (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Input
-            placeholder="멤버 검색"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="sm:max-w-xs"
-          />
+          <div className="flex items-center gap-2 sm:max-w-md sm:flex-1">
+            <Input
+              placeholder="멤버 검색"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="sm:max-w-xs"
+            />
+            <Button
+              variant="secondary"
+              className="shrink-0"
+              disabled={presets.length === 0}
+              onClick={() => setPresetOpen(true)}
+            >
+              프리셋 불러오기
+            </Button>
+          </div>
           <div className="flex items-center gap-3">
             <SortSelect
               value={selectSort}
@@ -583,6 +637,49 @@ export function MatchWizard({ participants }: { participants: Participant[] }) {
             );
           })}
         </ul>
+
+        <Dialog open={presetOpen} onOpenChange={setPresetOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>프리셋 불러오기</DialogTitle>
+              <DialogDescription>
+                /내전 으로 올린 모집글을 고르면 ✅ 누른 멤버가 자동 선택돼요.
+              </DialogDescription>
+            </DialogHeader>
+            <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto">
+              {presets.map((preset) => (
+                <li key={preset.id}>
+                  <button
+                    type="button"
+                    disabled={presetLoadingId !== null}
+                    onClick={() => applyPreset(preset)}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-border/60 px-3.5 py-3 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-semibold tabular-nums text-primary">
+                        #{preset.code}
+                      </span>
+                      <span className="font-medium">
+                        {preset.label || "내전 모집"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs text-ink-subtle">
+                      {presetLoadingId === preset.id
+                        ? "불러오는 중…"
+                        : new Date(preset.createdAt).toLocaleDateString(
+                            "ko-KR",
+                            {
+                              month: "numeric",
+                              day: "numeric",
+                            },
+                          )}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

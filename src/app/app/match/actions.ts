@@ -3,11 +3,86 @@
 import { revalidatePath } from "next/cache";
 import type { BuildMode, Role } from "@/domain/types";
 import { getMyChannel } from "@/lib/channel";
+import { getReactionUsers } from "@/lib/discord/rest";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+export interface PresetMembersResult {
+  /** 이 채널 멤버로 매핑된, ✅ 반응한 멤버 id 목록 */
+  memberIds: string[];
+  /** ✅ 반응자 수 (봇·미등록 포함 전) */
+  reactedCount: number;
+  /** 매핑되지 못한(미등록·미연결) 반응자 수 */
+  unmatchedCount: number;
+}
+
+/**
+ * 프리셋(모집 메시지)의 ✅ 반응자를 디스코드 ID로 채널 멤버에 매핑해 반환.
+ * 웹 "내전 시작 → 프리셋 불러오기"가 이 결과로 참가자를 자동 선택한다.
+ */
+export async function loadPresetMembers(
+  presetId: string,
+): Promise<ActionResult<PresetMembersResult>> {
+  const channel = await getMyChannel();
+  if (!channel) return { ok: false, error: "배정된 채널이 없습니다" };
+
+  const supabase = await createClient();
+
+  // RLS(owns_channel)로 본인 채널 프리셋만 조회된다.
+  const { data: preset } = await supabase
+    .from("match_presets")
+    .select("discord_channel_id, discord_message_id, channel_id")
+    .eq("id", presetId)
+    .eq("channel_id", channel.id)
+    .maybeSingle();
+  if (!preset) return { ok: false, error: "프리셋을 찾을 수 없습니다" };
+
+  let reactors: { id: string }[];
+  try {
+    reactors = await getReactionUsers(
+      preset.discord_channel_id as string,
+      preset.discord_message_id as string,
+      "✅",
+    );
+  } catch {
+    return { ok: false, error: "디스코드 반응을 불러오지 못했습니다" };
+  }
+  // 봇이 시드로 단 ✅ 는 제외 (봇 user id = application id).
+  const botId = process.env.DISCORD_APPLICATION_ID;
+  const reactorIds = reactors.map((r) => r.id).filter((id) => id !== botId);
+  if (reactorIds.length === 0) {
+    return {
+      ok: true,
+      data: { memberIds: [], reactedCount: 0, unmatchedCount: 0 },
+    };
+  }
+
+  // 디스코드 ID → 멤버, 그중 이 채널 소속만 추린다.
+  const [{ data: members }, { data: links }] = await Promise.all([
+    supabase.from("members").select("id").in("discord_user_id", reactorIds),
+    supabase
+      .from("channel_members")
+      .select("member_id")
+      .eq("channel_id", channel.id),
+  ]);
+
+  const channelMemberIds = new Set((links ?? []).map((l) => l.member_id));
+  const memberIds = (members ?? [])
+    .map((m) => m.id as string)
+    .filter((id) => channelMemberIds.has(id));
+
+  return {
+    ok: true,
+    data: {
+      memberIds,
+      reactedCount: reactorIds.length,
+      unmatchedCount: reactorIds.length - memberIds.length,
+    },
+  };
+}
 
 export interface CreateMatchTeam {
   side: "A" | "B";

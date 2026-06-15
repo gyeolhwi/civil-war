@@ -131,7 +131,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 type Sb = ReturnType<typeof createAdminClient>;
 
 /** guild_id → 내전 그룹(채널). 미연결이고 그룹이 정확히 1개면 자동 연결. */
-async function resolveChannelId(
+export async function resolveChannelId(
   sb: Sb,
   guildId: string | undefined,
 ): Promise<string | null> {

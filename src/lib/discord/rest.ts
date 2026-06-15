@@ -45,3 +45,22 @@ export async function addReaction(
     throw new Error(`반응 추가 실패 (${res.status}): ${await res.text()}`);
   }
 }
+
+/**
+ * 메시지의 특정 이모지에 반응한 사용자 목록(최대 100명)을 반환한다.
+ * 봇이 직접 단 ✅ 도 포함되지만, 봇은 멤버가 아니라 매핑 단계에서 자연히 걸러진다.
+ */
+export async function getReactionUsers(
+  channelId: string,
+  messageId: string,
+  emoji: string,
+): Promise<{ id: string; username?: string }[]> {
+  const res = await fetch(
+    `${API_BASE}/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}?limit=100`,
+    { headers: botHeaders() },
+  );
+  if (!res.ok) {
+    throw new Error(`반응 조회 실패 (${res.status}): ${await res.text()}`);
+  }
+  return (await res.json()) as { id: string; username?: string }[];
+}
