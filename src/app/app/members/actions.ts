@@ -1,9 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ratingScore } from "@/constants/tiers";
-import type { Division, Tier } from "@/domain/types";
 import { getMyChannel } from "@/lib/channel";
+import {
+  mapMemberError,
+  replaceHeroPrefs,
+  replaceMapPrefs,
+  replaceRoleRatings,
+  upsertChannelMembership,
+  upsertMemberCore,
+} from "@/lib/member-write";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult, memberFormSchema } from "./schema";
 
@@ -29,77 +35,38 @@ export async function saveMember(raw: unknown): Promise<ActionResult> {
   const discordName = v.discordName?.trim() || null;
 
   // 1. 글로벌 members upsert (배틀태그 기준)
-  let memberId = v.memberId ?? null;
-  if (!memberId) {
-    const { data: existing } = await supabase
-      .from("members")
-      .select("id")
-      .eq("battle_tag", v.battleTag)
-      .maybeSingle();
-    memberId = existing?.id ?? null;
-  }
-
-  if (memberId) {
-    const { error } = await supabase
-      .from("members")
-      .update({ battle_tag: v.battleTag, discord_name: discordName })
-      .eq("id", memberId);
-    if (error) return { ok: false, error: mapError(error.message) };
-  } else {
-    const { data, error } = await supabase
-      .from("members")
-      .insert({ battle_tag: v.battleTag, discord_name: discordName })
-      .select("id")
-      .single();
-    if (error || !data) return { ok: false, error: mapError(error?.message) };
-    memberId = data.id;
-  }
+  const core = await upsertMemberCore(supabase, {
+    memberId: v.memberId,
+    battleTag: v.battleTag,
+    discordName,
+  });
+  if (!core.ok) return core;
+  const memberId = core.memberId;
 
   // 2. channel_members upsert (현재 채널 매핑 + 주/부 포지션)
-  const { error: cmError } = await supabase.from("channel_members").upsert(
-    {
-      channel_id: channel.id,
-      member_id: memberId,
-      primary_role: v.primaryRole ?? null,
-      secondary_role: v.secondaryRole ?? null,
-    },
-    { onConflict: "channel_id,member_id" },
-  );
-  if (cmError) return { ok: false, error: mapError(cmError.message) };
+  const cm = await upsertChannelMembership(supabase, channel.id, memberId, {
+    primaryRole: v.primaryRole ?? null,
+    secondaryRole: v.secondaryRole ?? null,
+  });
+  if (!cm.ok) return cm;
 
   // 3. 프로필 3종 — 현재 채널 것만 교체 (delete → insert)
-  const ctx = { channel_id: channel.id, member_id: memberId };
-
-  await supabase.from("member_role_ratings").delete().match(ctx);
-  if (v.ratings.length) {
-    const rows = v.ratings.map((r) => ({
-      ...ctx,
-      role: r.role,
-      tier: r.tier,
-      division: r.division,
-      rating_score: ratingScore(r.tier as Tier, r.division as Division),
-    }));
-    const { error } = await supabase.from("member_role_ratings").insert(rows);
-    if (error) return { ok: false, error: mapError(error.message) };
-  }
-
-  await supabase.from("member_hero_preferences").delete().match(ctx);
-  if (v.heroCodes.length) {
-    const rows = v.heroCodes.map((hero_code) => ({ ...ctx, hero_code }));
-    const { error } = await supabase
-      .from("member_hero_preferences")
-      .insert(rows);
-    if (error) return { ok: false, error: mapError(error.message) };
-  }
-
-  await supabase.from("member_map_preferences").delete().match(ctx);
-  if (v.mapCodes.length) {
-    const rows = v.mapCodes.map((map_code) => ({ ...ctx, map_code }));
-    const { error } = await supabase
-      .from("member_map_preferences")
-      .insert(rows);
-    if (error) return { ok: false, error: mapError(error.message) };
-  }
+  const r1 = await replaceRoleRatings(
+    supabase,
+    channel.id,
+    memberId,
+    v.ratings,
+  );
+  if (!r1.ok) return r1;
+  const r2 = await replaceHeroPrefs(
+    supabase,
+    channel.id,
+    memberId,
+    v.heroCodes,
+  );
+  if (!r2.ok) return r2;
+  const r3 = await replaceMapPrefs(supabase, channel.id, memberId, v.mapCodes);
+  if (!r3.ok) return r3;
 
   revalidatePath("/app/members");
   return { ok: true };
@@ -121,19 +88,8 @@ export async function deleteMember(memberId: string): Promise<ActionResult> {
   await supabase.from("member_hero_preferences").delete().match(ctx);
   await supabase.from("member_map_preferences").delete().match(ctx);
   const { error } = await supabase.from("channel_members").delete().match(ctx);
-  if (error) return { ok: false, error: mapError(error.message) };
+  if (error) return { ok: false, error: mapMemberError(error.message) };
 
   revalidatePath("/app/members");
   return { ok: true };
-}
-
-function mapError(message?: string): string {
-  if (!message) return "저장 중 오류가 발생했습니다";
-  if (
-    message.includes("members_battle_tag_key") ||
-    message.includes("duplicate")
-  ) {
-    return "이미 이 채널에 등록된 배틀태그입니다";
-  }
-  return "저장 중 오류가 발생했습니다";
 }
