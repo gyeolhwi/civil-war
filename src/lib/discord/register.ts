@@ -14,8 +14,9 @@
 //    쓰지 않는다. 자유 텍스트(배틀태그)만 모달, 나머지 선택값은 메시지 셀렉트로 받는다.
 
 import { ROLE_LABEL_KO } from "@/constants/heroes";
+import { MODE_LABEL_KO } from "@/constants/maps";
 import { TIER_LABEL_KO, TIER_ORDER } from "@/constants/tiers";
-import type { Division, RefData, Role, Tier } from "@/domain/types";
+import type { Division, GameMode, RefData, Role, Tier } from "@/domain/types";
 import {
   ensureChannelMembership,
   replaceHeroPrefs,
@@ -48,11 +49,14 @@ const InteractionType = {
 const EPHEMERAL = 64;
 
 const ROLES: Role[] = ["tank", "dps", "support"];
-const ROLE_PICK_LABEL: Record<Role, string> = {
-  tank: "탱커",
-  dps: "딜러",
-  support: "힐러",
-};
+const MODE_ORDER: GameMode[] = [
+  "control",
+  "escort",
+  "hybrid",
+  "push",
+  "flashpoint",
+  "clash",
+];
 const MODE_EMOJI: Record<string, string> = {
   control: "🟦",
   escort: "🚚",
@@ -253,7 +257,7 @@ function backRow() {
 
 function roleOptions(selected: Role | null): Option[] {
   return ROLES.map((r) => ({
-    label: ROLE_PICK_LABEL[r],
+    label: ROLE_LABEL_KO[r],
     value: r,
     default: selected === r,
   }));
@@ -267,19 +271,47 @@ function tierOptions(selected: Tier | null): Option[] {
 }
 function divisionOptions(selected: Division | null): Option[] {
   return ([5, 4, 3, 2, 1] as Division[]).map((d) => ({
-    label: `${d}부`,
+    label: `${d}티어`,
     value: String(d),
     default: selected === d,
   }));
 }
 
-/** 포지션별 티어 요약 문자열 (예: "탱커 다이아3 · 힐러 마스터5"). */
+/** 포지션별 티어 요약 문자열 (예: "돌격 다이아몬드 3티어 · 지원 마스터 5티어"). */
 function tierText(p: Profile): string {
   const parts = ROLES.filter((r) => p.ratings[r]).map((r) => {
     const x = p.ratings[r] as RoleRating;
-    return `${ROLE_PICK_LABEL[r]} ${TIER_LABEL_KO[x.tier]}${x.division}`;
+    return `${ROLE_LABEL_KO[r]} ${TIER_LABEL_KO[x.tier]} ${x.division}티어`;
   });
   return parts.length ? parts.join(" · ") : "—";
+}
+
+/** 활성 맵을 모드 순서대로 25개 이하 셀렉트로 묶는다 (각 묶음의 모드 집합 포함). */
+function mapGroups(ref: RefData): {
+  codes: { code: string; nameKo: string; mode: GameMode }[];
+  modes: GameMode[];
+}[] {
+  const byMode = MODE_ORDER.map((mode) => ({
+    mode,
+    maps: ref.maps.filter((m) => m.isActive && m.mode === mode),
+  })).filter((g) => g.maps.length > 0);
+
+  const bins: {
+    codes: { code: string; nameKo: string; mode: GameMode }[];
+    modes: GameMode[];
+  }[] = [];
+  for (const g of byMode) {
+    let bin = bins[bins.length - 1];
+    if (!bin || bin.codes.length + g.maps.length > SELECT_OPTION_CAP) {
+      bin = { codes: [], modes: [] };
+      bins.push(bin);
+    }
+    bin.modes.push(g.mode);
+    for (const m of g.maps) {
+      bin.codes.push({ code: m.code, nameKo: m.nameKo, mode: m.mode });
+    }
+  }
+  return bins;
 }
 
 /** 배틀태그 입력 모달 (클래식 ActionRow + TextInput). */
@@ -306,7 +338,7 @@ function basicModal(existing: Profile | null) {
 }
 
 function profileSummary(p: Profile, note?: string): string {
-  const role = (r: Role | null) => (r ? ROLE_PICK_LABEL[r] : "—");
+  const role = (r: Role | null) => (r ? ROLE_LABEL_KO[r] : "—");
   const lines = [
     `✅ **${p.battleTag}** 내전 프로필`,
     `· 주 포지션: ${role(p.primaryRole)}  · 부 포지션: ${role(p.secondaryRole)}`,
@@ -369,14 +401,14 @@ function tierResponse(callbackType: number, p: Profile, note?: string) {
     return [
       selectRow(
         `reg:tier_${r}`,
-        `${ROLE_PICK_LABEL[r]} 티어`,
+        `${ROLE_LABEL_KO[r]} 티어`,
         tierOptions(cur?.tier ?? null),
         0,
         1,
       ),
       selectRow(
         `reg:div_${r}`,
-        `${ROLE_PICK_LABEL[r]} 등급(디비전)`,
+        `${ROLE_LABEL_KO[r]} 등급(디비전)`,
         divisionOptions(cur?.division ?? null),
         0,
         1,
@@ -428,36 +460,25 @@ function heroResponse(
 }
 
 /** 활성 맵을 25개 청크로 나눈 목록 (셀렉트 옵션 상한 때문). */
-function mapChunks(
-  ref: RefData,
-): { code: string; nameKo: string; mode: string }[][] {
-  const active = ref.maps.filter((m) => m.isActive);
-  const chunks = [];
-  for (let i = 0; i < active.length; i += SELECT_OPTION_CAP) {
-    chunks.push(active.slice(i, i + SELECT_OPTION_CAP));
-  }
-  return chunks;
-}
-
 function mapResponse(callbackType: number, p: Profile, ref: RefData) {
   const selected = new Set(p.mapCodes);
-  const rows = mapChunks(ref).map((chunk, n) =>
+  const rows = mapGroups(ref).map((g, n) =>
     selectRow(
       `reg:map_${n}`,
-      `선호 맵 ${n + 1}`,
-      chunk.map((m) => ({
+      `${g.modes.map((m) => MODE_LABEL_KO[m]).join("·")} 맵`,
+      g.codes.map((m) => ({
         label: `${MODE_EMOJI[m.mode] ?? ""} ${m.nameKo}`.trim(),
         value: m.code,
         default: selected.has(m.code),
       })),
       0,
-      chunk.length,
+      g.codes.length,
     ),
   );
   return {
     type: callbackType,
     data: {
-      content: `🗺️ 선호 맵 — 현재 ${p.mapCodes.length}개`,
+      content: `🗺️ 선호 맵 — 모드별로 나뉘어 있어요. (현재 ${p.mapCodes.length}개)`,
       flags: EPHEMERAL,
       components: [...rows, backRow()],
     },
@@ -727,7 +748,7 @@ async function handleComponent(
     if (!p || !Number.isInteger(n)) {
       return ephemeral("프로필을 불러오지 못했어요.");
     }
-    const chunkCodes = (mapChunks(ref)[n] ?? []).map((m) => m.code);
+    const chunkCodes = (mapGroups(ref)[n]?.codes ?? []).map((m) => m.code);
     const kept = p.mapCodes.filter((c) => !chunkCodes.includes(c));
     const next = [...kept, ...values];
     const r = await replaceMapPrefs(sb, channelId, memberId, next);
