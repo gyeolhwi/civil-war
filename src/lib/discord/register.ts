@@ -153,12 +153,13 @@ async function resolveMemberId(
   return data?.id ?? null;
 }
 
+type RoleRating = { tier: Tier; division: Division };
+
 interface Profile {
   battleTag: string;
   primaryRole: Role | null;
   secondaryRole: Role | null;
-  tier: Tier | null;
-  division: Division | null;
+  ratings: Partial<Record<Role, RoleRating>>; // 포지션별 티어·등급
   heroCodes: string[];
   mapCodes: string[];
 }
@@ -190,14 +191,18 @@ async function loadProfile(
       .match({ channel_id: channelId, member_id: memberId }),
   ]);
   if (!m.data) return null;
-  const primaryRole = (cm.data?.primary_role ?? null) as Role | null;
-  const primaryRating = ratings.data?.find((r) => r.role === primaryRole);
+  const ratingMap: Partial<Record<Role, RoleRating>> = {};
+  for (const r of ratings.data ?? []) {
+    ratingMap[r.role as Role] = {
+      tier: r.tier as Tier,
+      division: r.division as Division,
+    };
+  }
   return {
     battleTag: m.data.battle_tag as string,
-    primaryRole,
+    primaryRole: (cm.data?.primary_role ?? null) as Role | null,
     secondaryRole: (cm.data?.secondary_role ?? null) as Role | null,
-    tier: (primaryRating?.tier ?? null) as Tier | null,
-    division: (primaryRating?.division ?? null) as Division | null,
+    ratings: ratingMap,
     heroCodes: (heroes.data ?? []).map((h) => h.hero_code as string),
     mapCodes: (maps.data ?? []).map((mm) => mm.map_code as string),
   };
@@ -252,6 +257,22 @@ function tierOptions(selected: Tier | null): Option[] {
     default: selected === t,
   }));
 }
+function divisionOptions(selected: Division | null): Option[] {
+  return ([5, 4, 3, 2, 1] as Division[]).map((d) => ({
+    label: `${d}부`,
+    value: String(d),
+    default: selected === d,
+  }));
+}
+
+/** 포지션별 티어 요약 문자열 (예: "탱커 다이아3 · 힐러 마스터5"). */
+function tierText(p: Profile): string {
+  const parts = ROLES.filter((r) => p.ratings[r]).map((r) => {
+    const x = p.ratings[r] as RoleRating;
+    return `${ROLE_PICK_LABEL[r]} ${TIER_LABEL_KO[x.tier]}${x.division}`;
+  });
+  return parts.length ? parts.join(" · ") : "—";
+}
 
 /** 배틀태그 입력 모달 (클래식 ActionRow + TextInput). */
 function basicModal(existing: Profile | null) {
@@ -280,9 +301,10 @@ function profileSummary(p: Profile, note?: string): string {
   const role = (r: Role | null) => (r ? ROLE_PICK_LABEL[r] : "—");
   const lines = [
     `✅ **${p.battleTag}** 내전 프로필`,
-    `· 주 포지션: ${role(p.primaryRole)}  · 부 포지션: ${role(p.secondaryRole)}  · 티어: ${p.tier ? TIER_LABEL_KO[p.tier] : "—"}`,
+    `· 주 포지션: ${role(p.primaryRole)}  · 부 포지션: ${role(p.secondaryRole)}`,
+    `· 티어: ${tierText(p)}`,
     `· 선호 영웅 ${p.heroCodes.length}개  · 선호 맵 ${p.mapCodes.length}개`,
-    "아래에서 고르면 바로 저장돼요. (영웅·맵은 버튼)",
+    "포지션은 아래에서, 티어·영웅·맵은 버튼에서 설정하세요.",
   ];
   if (note) lines.push(`\n${note}`);
   return lines.join("\n");
@@ -304,23 +326,61 @@ function profileResponse(callbackType: number, p: Profile, note?: string) {
           0,
           1,
         ),
-        selectRow(
-          "reg:tier",
-          "티어 (주 포지션 기준)",
-          tierOptions(p.tier),
-          0,
-          1,
-        ),
         {
           type: ComponentType.ACTION_ROW,
           components: [
+            button(ButtonStyle.PRIMARY, "티어", "🏅", "reg:open_tier"),
             button(ButtonStyle.PRIMARY, "선호 영웅", "⭐", "reg:open_heroes"),
             button(ButtonStyle.PRIMARY, "선호 맵", "🗺️", "reg:open_maps"),
-            button(ButtonStyle.SECONDARY, "배틀태그 수정", "✏️", "reg:edit_tag"),
+            button(ButtonStyle.SECONDARY, "배틀태그", "✏️", "reg:edit_tag"),
             button(ButtonStyle.SUCCESS, "완료", "✅", "reg:done"),
           ],
         },
       ],
+    },
+  };
+}
+
+/** 포지션별 티어·등급 화면 (주/부 포지션 각각 티어 셀렉트 + 등급 셀렉트). */
+function tierResponse(callbackType: number, p: Profile, note?: string) {
+  const roles = ROLES.filter(
+    (r) => r === p.primaryRole || r === p.secondaryRole,
+  );
+  if (!roles.length) {
+    return {
+      type: callbackType,
+      data: {
+        content: "먼저 주/부 포지션을 선택해주세요. (메인 화면 드롭다운)",
+        flags: EPHEMERAL,
+        components: [],
+      },
+    };
+  }
+  const rows = roles.flatMap((r) => {
+    const cur = p.ratings[r];
+    return [
+      selectRow(
+        `reg:tier_${r}`,
+        `${ROLE_PICK_LABEL[r]} 티어`,
+        tierOptions(cur?.tier ?? null),
+        0,
+        1,
+      ),
+      selectRow(
+        `reg:div_${r}`,
+        `${ROLE_PICK_LABEL[r]} 등급(디비전)`,
+        divisionOptions(cur?.division ?? null),
+        0,
+        1,
+      ),
+    ];
+  });
+  return {
+    type: callbackType,
+    data: {
+      content: `🏅 포지션별 티어·등급 — ${tierText(p)}${note ? `\n${note}` : ""}`,
+      flags: EPHEMERAL,
+      components: rows,
     },
   };
 }
@@ -554,31 +614,60 @@ async function handleComponent(
     return profileResponse(CallbackType.UPDATE_MESSAGE, p);
   }
 
-  // 티어 — 주 포지션 기준으로 저장 (디비전은 기존값 또는 기본값)
-  if (cid === "reg:tier") {
+  // 티어 화면 열기
+  if (cid === "reg:open_tier") {
     const p = await loadProfile(sb, channelId, memberId);
     if (!p) return ephemeral("프로필을 불러오지 못했어요.");
-    if (!p.primaryRole) {
-      return profileResponse(
-        CallbackType.UPDATE_MESSAGE,
-        p,
-        "⚠️ 티어는 주 포지션 기준이라, 주 포지션을 먼저 선택해주세요.",
-      );
-    }
+    return tierResponse(CallbackType.CHANNEL_MESSAGE_WITH_SOURCE, p);
+  }
+
+  // 포지션별 티어 — 등급(디비전)은 기존값 또는 기본값
+  if (cid.startsWith("reg:tier_")) {
+    const role = asRole(cid.slice("reg:tier_".length));
     const tier = asTier(values[0]);
+    const p = await loadProfile(sb, channelId, memberId);
+    if (!p || !role) return ephemeral("프로필을 불러오지 못했어요.");
     if (tier) {
+      const division = p.ratings[role]?.division ?? DEFAULT_DIVISION;
       const rr = await upsertRoleRating(
         sb,
         channelId,
         memberId,
-        p.primaryRole,
+        role,
         tier,
-        p.division ?? DEFAULT_DIVISION,
+        division,
       );
       if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
-      p.tier = tier;
+      p.ratings[role] = { tier, division };
     }
-    return profileResponse(CallbackType.UPDATE_MESSAGE, p);
+    return tierResponse(CallbackType.UPDATE_MESSAGE, p);
+  }
+
+  // 포지션별 등급(디비전) — 그 포지션 티어가 먼저 있어야 함
+  if (cid.startsWith("reg:div_")) {
+    const role = asRole(cid.slice("reg:div_".length));
+    const division = asDivision(values[0]);
+    const p = await loadProfile(sb, channelId, memberId);
+    if (!p || !role) return ephemeral("프로필을 불러오지 못했어요.");
+    const curTier = p.ratings[role]?.tier;
+    if (division && curTier) {
+      const rr = await upsertRoleRating(
+        sb,
+        channelId,
+        memberId,
+        role,
+        curTier,
+        division,
+      );
+      if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
+      p.ratings[role] = { tier: curTier, division };
+      return tierResponse(CallbackType.UPDATE_MESSAGE, p);
+    }
+    return tierResponse(
+      CallbackType.UPDATE_MESSAGE,
+      p,
+      "⚠️ 먼저 그 포지션의 티어를 선택해주세요.",
+    );
   }
 
   if (cid === "reg:open_heroes" || cid === "reg:open_maps") {
@@ -641,4 +730,8 @@ function asRole(v: string | undefined): Role | null {
 }
 function asTier(v: string | undefined): Tier | null {
   return v && (TIER_ORDER as string[]).includes(v) ? (v as Tier) : null;
+}
+function asDivision(v: string | undefined): Division | null {
+  const n = Number(v);
+  return n >= 1 && n <= 5 ? (n as Division) : null;
 }
