@@ -81,24 +81,28 @@ interface DiscordUser {
   global_name?: string | null;
 }
 
-const PERM_ADMINISTRATOR = 1 << 3; // ADMINISTRATOR = 8
-const PERM_MANAGE_GUILD = 1 << 5; // 서버 관리(Manage Server) = 32
+const PERM_ADMINISTRATOR = BigInt(8); // ADMINISTRATOR (1 << 3)
+const PERM_MANAGE_GUILD = BigInt(32); // 서버 관리(Manage Server) (1 << 5)
 
 /**
  * 명령 실행자가 서버 관리자급인지 (권한 비트필드로 판정).
  * ADMINISTRATOR 또는 서버 관리(Manage Server) 권한이면 허용.
- * permissions 는 큰 정수 문자열이지만 두 비트 모두 하위 32비트라
- * Number + 32비트 AND 로 안전하게 판정된다 (값 < 2^53).
+ * permissions 값은 2^53 를 넘을 수 있어 Number 로는 정밀도가 깨진다 →
+ * 반드시 BigInt 로 비트 검사한다 (BigInt 리터럴 8n 은 target<ES2020 에서
+ * 불가하므로 BigInt() 생성자를 쓴다).
  */
 function isAdmin(i: Interaction): boolean {
   const p = i.member?.permissions;
   if (!p) return false;
-  const bits = Number(p);
-  if (!Number.isFinite(bits)) return false;
-  return (
-    (bits & PERM_ADMINISTRATOR) === PERM_ADMINISTRATOR ||
-    (bits & PERM_MANAGE_GUILD) === PERM_MANAGE_GUILD
-  );
+  try {
+    const bits = BigInt(p);
+    return (
+      (bits & PERM_ADMINISTRATOR) === PERM_ADMINISTRATOR ||
+      (bits & PERM_MANAGE_GUILD) === PERM_MANAGE_GUILD
+    );
+  } catch {
+    return false;
+  }
 }
 
 function getUser(i: Interaction): DiscordUser | undefined {
@@ -540,8 +544,7 @@ export async function handleRegister(
     // 관리자면 ephemeral 채널 선택(최초 1회), 일반 멤버면 안내.
     if (isAdmin(interaction)) return channelLinkPicker(sb);
     return ephemeral(
-      "이 서버는 아직 내전 채널과 연결되지 않았어요. 채널 관리자에게 문의해주세요.\n" +
-        `(진단: 권한값=${interaction.member?.permissions ?? "없음"})`,
+      "이 서버는 아직 내전 채널과 연결되지 않았어요. 채널 관리자에게 문의해주세요.",
     );
   }
 
