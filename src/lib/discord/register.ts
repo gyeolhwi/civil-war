@@ -95,6 +95,19 @@ function ephemeral(content: string) {
   };
 }
 
+/** 디스코드 3초 한도 안에 끝나도록, 느린 작업에 타임아웃을 건다. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`${label}이(가) ${ms}ms 안에 끝나지 않았어요`)),
+        ms,
+      ),
+    ),
+  ]);
+}
+
 // ── 채널·멤버 해석 ─────────────────────────────────────────────────────────
 type Sb = ReturnType<typeof createAdminClient>;
 
@@ -437,7 +450,7 @@ export async function handleRegister(
   interaction: Interaction,
 ): Promise<object> {
   try {
-    return await handleRegisterInner(interaction);
+    return await withTimeout(handleRegisterInner(interaction), 2500, "처리");
   } catch (e) {
     return ephemeral(
       `등록 처리 중 오류: ${e instanceof Error ? e.message : String(e)}`,
@@ -451,9 +464,15 @@ async function handleRegisterInner(interaction: Interaction): Promise<object> {
   if (!discordUserId)
     return ephemeral("디스코드 사용자 정보를 찾을 수 없어요.");
 
+  // 1) 슬래시 `/등록` → 즉시 기본정보 모달.
+  // 모달은 defer 불가(3초 한도)라, 느릴 수 있는 DB 접근을 여기서 하지 않는다.
+  // 연결 확인·프리필은 제출(reg:basic) 시점에 처리한다.
+  if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+    return basicModal(null);
+  }
+
   const sb = createAdminClient();
 
-  // 모달은 defer(응답 지연)가 불가 → 3초 내 응답해야 한다.
   // 길드 ↔ 그룹 연결은 채널(그룹) 등록 시 discord_guild_id 로 설정한다.
   // 채널·멤버 조회를 병렬로 돌려 응답 시간을 줄인다.
   const [channelId, memberId] = await Promise.all([
@@ -464,14 +483,6 @@ async function handleRegisterInner(interaction: Interaction): Promise<object> {
     return ephemeral(
       "이 서버는 아직 내전 채널과 연결되지 않았어요. 채널 관리자에게 문의해주세요.",
     );
-  }
-
-  // 1) 슬래시 `/등록` → 기본정보 모달 (기존값 프리필)
-  if (interaction.type === InteractionType.APPLICATION_COMMAND) {
-    const existing = memberId
-      ? await loadExisting(sb, channelId, memberId)
-      : null;
-    return basicModal(existing);
   }
 
   // 2) 버튼 → 영웅/맵 모달 or 완료
