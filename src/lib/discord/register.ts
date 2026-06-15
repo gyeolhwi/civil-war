@@ -66,7 +66,7 @@ const BATTLE_TAG_RE = /^.+#\d{3,}$/u;
 interface Interaction {
   type: number;
   guild_id?: string;
-  member?: { user?: DiscordUser };
+  member?: { user?: DiscordUser; permissions?: string };
   user?: DiscordUser;
   data?: {
     name?: string;
@@ -79,6 +79,21 @@ interface DiscordUser {
   id?: string;
   username?: string;
   global_name?: string | null;
+}
+
+const PERM_ADMINISTRATOR = 1 << 3; // 디스코드 권한 비트 (ADMINISTRATOR = 8)
+
+/**
+ * 명령 실행자가 서버 관리자인지 (권한 비트필드로 판정).
+ * permissions 는 큰 정수 문자열이지만 ADMINISTRATOR(비트 3)는 하위 비트라
+ * Number + 32비트 AND 로 안전하게 판정된다 (값 < 2^53).
+ */
+function isAdmin(i: Interaction): boolean {
+  const p = i.member?.permissions;
+  if (!p) return false;
+  const bits = Number(p);
+  if (!Number.isFinite(bits)) return false;
+  return (bits & PERM_ADMINISTRATOR) === PERM_ADMINISTRATOR;
 }
 
 function getUser(i: Interaction): DiscordUser | undefined {
@@ -428,6 +443,68 @@ const InteractionType = {
   MODAL_SUBMIT: 5,
 } as const;
 
+/** 길드 미연결 시 관리자에게 보이는 채널 선택(ephemeral). 최초 1회만. */
+async function channelLinkPicker(sb: Sb): Promise<object> {
+  const { data } = await sb
+    .from("channels")
+    .select("id,name")
+    .order("created_at");
+  if (!data?.length) {
+    return ephemeral(
+      "연결할 내전 채널이 없어요. 먼저 웹에서 채널을 만들어주세요.",
+    );
+  }
+  const options: Option[] = data.slice(0, SELECT_OPTION_CAP).map((c) => ({
+    label: c.name as string,
+    value: c.id as string,
+  }));
+  return {
+    type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      content:
+        "이 디스코드 서버를 어느 내전 채널에 연결할까요? (최초 1회만 설정하면 이후 자동 감지)",
+      flags: EPHEMERAL,
+      components: [
+        {
+          type: ComponentType.ACTION_ROW,
+          components: [
+            {
+              type: ComponentType.STRING_SELECT,
+              custom_id: "reg:link",
+              placeholder: "내전 채널 선택",
+              min_values: 1,
+              max_values: 1,
+              options,
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+/** 채널 선택 → 이 길드와 연결한 뒤 바로 등록 모달로 이어준다. */
+async function handleLink(
+  sb: Sb,
+  guildId: string | undefined,
+  channelId: string | undefined,
+  admin: boolean,
+): Promise<object> {
+  if (!admin) return ephemeral("채널 연결은 서버 관리자만 할 수 있어요.");
+  if (!guildId || !channelId) return ephemeral("연결 정보를 찾을 수 없어요.");
+  const { error } = await sb
+    .from("channels")
+    .update({ discord_guild_id: guildId })
+    .eq("id", channelId);
+  if (error) {
+    return ephemeral(
+      "연결 실패: 이미 다른 서버/채널과 연결돼 있을 수 있어요. 관리자에게 문의해주세요.",
+    );
+  }
+  // 연결 완료 → 곧바로 기본정보 모달로 등록 시작
+  return basicModal(null);
+}
+
 /** `/등록` 관련 인터랙션 처리. 반환값은 인터랙션 응답 body. */
 export async function handleRegister(
   interaction: Interaction,
@@ -438,8 +515,25 @@ export async function handleRegister(
     return ephemeral("디스코드 사용자 정보를 찾을 수 없어요.");
 
   const sb = createAdminClient();
+
+  // 채널 연결 피커 응답 (길드가 아직 미연결인 상태에서 옴) — 먼저 처리
+  if (
+    interaction.type === InteractionType.MESSAGE_COMPONENT &&
+    interaction.data?.custom_id === "reg:link"
+  ) {
+    return handleLink(
+      sb,
+      interaction.guild_id,
+      interaction.data?.values?.[0],
+      isAdmin(interaction),
+    );
+  }
+
   const channelId = await resolveChannelId(sb, interaction.guild_id);
   if (!channelId) {
+    // 미연결 + 채널 여러 개라 자동 추측 불가.
+    // 관리자면 ephemeral 채널 선택(최초 1회), 일반 멤버면 안내.
+    if (isAdmin(interaction)) return channelLinkPicker(sb);
     return ephemeral(
       "이 서버는 아직 내전 채널과 연결되지 않았어요. 채널 관리자에게 문의해주세요.",
     );
