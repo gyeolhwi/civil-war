@@ -202,6 +202,7 @@ export function MatchWizard({
   );
   const [presetOpen, setPresetOpen] = useState(false);
   const [presetLoadingId, setPresetLoadingId] = useState<string | null>(null);
+  const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [mode, setMode] = useState<BuildMode>("basic");
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [saved, setSaved] = useState<SavedMatch | null>(null);
@@ -257,14 +258,17 @@ export function MatchWizard({
         }
         const valid = res.data.memberIds.filter((id) => byId.has(id));
         setSelected(valid.slice(0, 10));
+        setUnmatchedNames(res.data.unmatchedNames);
         setPresetOpen(false);
         const capped = valid.length > 10 ? " (10명 초과분 제외)" : "";
         const skipped =
-          res.data.unmatchedCount > 0
-            ? ` · 미등록 ${res.data.unmatchedCount}명 제외`
+          res.data.unmatchedNames.length > 0
+            ? ` · 미등록 ${res.data.unmatchedNames.length}명은 직접 선택`
             : "";
-        if (valid.length === 0) {
-          toast.error("✅ 참가자 중 등록된 멤버가 없어요");
+        if (valid.length === 0 && res.data.unmatchedNames.length === 0) {
+          toast.error("✅ 누른 참가자가 없어요");
+        } else if (valid.length === 0) {
+          toast.error("✅ 참가자가 모두 미등록이에요 — 아래 명단 참고");
         } else {
           toast.success(`${valid.length}명 선택했어요${capped}${skipped}`);
         }
@@ -573,6 +577,16 @@ export function MatchWizard({
             </Button>
           </div>
         </div>
+
+        {unmatchedNames.length > 0 && (
+          <div className="rounded-lg border border-primary/40 bg-primary/10 px-3.5 py-2.5 text-sm">
+            <p className="font-medium text-ink">
+              ✅ 눌렀지만 미등록·미연결 {unmatchedNames.length}명 — 아래에서
+              직접 선택하거나 멤버 등록이 필요해요
+            </p>
+            <p className="mt-1 text-ink-subtle">{unmatchedNames.join(", ")}</p>
+          </div>
+        )}
 
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {sortedSelect.map((p) => {
@@ -1296,6 +1310,7 @@ export function MatchWizard({
             desc="참가자 선택부터 다시"
             onClick={() => {
               setSelected([]);
+              setUnmatchedNames([]);
               setCandidate(null);
               setSaved(null);
               setMode("basic");

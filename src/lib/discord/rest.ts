@@ -54,7 +54,7 @@ export async function getReactionUsers(
   channelId: string,
   messageId: string,
   emoji: string,
-): Promise<{ id: string; username?: string }[]> {
+): Promise<{ id: string; username?: string; global_name?: string | null }[]> {
   const res = await fetch(
     `${API_BASE}/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}?limit=100`,
     { headers: botHeaders() },
@@ -62,5 +62,9 @@ export async function getReactionUsers(
   if (!res.ok) {
     throw new Error(`반응 조회 실패 (${res.status}): ${await res.text()}`);
   }
-  return (await res.json()) as { id: string; username?: string }[];
+  return (await res.json()) as {
+    id: string;
+    username?: string;
+    global_name?: string | null;
+  }[];
 }

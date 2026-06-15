@@ -13,10 +13,10 @@ export type ActionResult<T> =
 export interface PresetMembersResult {
   /** 이 채널 멤버로 매핑된, ✅ 반응한 멤버 id 목록 */
   memberIds: string[];
-  /** ✅ 반응자 수 (봇·미등록 포함 전) */
+  /** ✅ 반응자 수 (봇 제외) */
   reactedCount: number;
-  /** 매핑되지 못한(미등록·미연결) 반응자 수 */
-  unmatchedCount: number;
+  /** 매핑되지 못한(미등록·미연결) 반응자의 디스코드 닉네임 — 관리자가 직접 선택하도록 안내 */
+  unmatchedNames: string[];
 }
 
 /**
@@ -40,7 +40,11 @@ export async function loadPresetMembers(
     .maybeSingle();
   if (!preset) return { ok: false, error: "프리셋을 찾을 수 없습니다" };
 
-  let reactors: { id: string }[];
+  let reactors: {
+    id: string;
+    username?: string;
+    global_name?: string | null;
+  }[];
   try {
     reactors = await getReactionUsers(
       preset.discord_channel_id as string,
@@ -52,17 +56,21 @@ export async function loadPresetMembers(
   }
   // 봇이 시드로 단 ✅ 는 제외 (봇 user id = application id).
   const botId = process.env.DISCORD_APPLICATION_ID;
-  const reactorIds = reactors.map((r) => r.id).filter((id) => id !== botId);
-  if (reactorIds.length === 0) {
+  const realReactors = reactors.filter((r) => r.id !== botId);
+  if (realReactors.length === 0) {
     return {
       ok: true,
-      data: { memberIds: [], reactedCount: 0, unmatchedCount: 0 },
+      data: { memberIds: [], reactedCount: 0, unmatchedNames: [] },
     };
   }
+  const reactorIds = realReactors.map((r) => r.id);
 
-  // 디스코드 ID → 멤버, 그중 이 채널 소속만 추린다.
+  // 디스코드 ID → 멤버(연결됨), 그중 이 채널 소속만 추린다.
   const [{ data: members }, { data: links }] = await Promise.all([
-    supabase.from("members").select("id").in("discord_user_id", reactorIds),
+    supabase
+      .from("members")
+      .select("id, discord_user_id")
+      .in("discord_user_id", reactorIds),
     supabase
       .from("channel_members")
       .select("member_id")
@@ -70,16 +78,23 @@ export async function loadPresetMembers(
   ]);
 
   const channelMemberIds = new Set((links ?? []).map((l) => l.member_id));
-  const memberIds = (members ?? [])
-    .map((m) => m.id as string)
-    .filter((id) => channelMemberIds.has(id));
+  const matched = (members ?? []).filter((m) =>
+    channelMemberIds.has(m.id as string),
+  );
+  const memberIds = matched.map((m) => m.id as string);
+
+  // 선택된 멤버의 디스코드 ID → 미매칭(미등록·타채널·미연결) 반응자 닉네임 추출
+  const matchedDiscordIds = new Set(matched.map((m) => m.discord_user_id));
+  const unmatchedNames = realReactors
+    .filter((r) => !matchedDiscordIds.has(r.id))
+    .map((r) => r.global_name?.trim() || r.username?.trim() || "(알 수 없음)");
 
   return {
     ok: true,
     data: {
       memberIds,
-      reactedCount: reactorIds.length,
-      unmatchedCount: reactorIds.length - memberIds.length,
+      reactedCount: realReactors.length,
+      unmatchedNames,
     },
   };
 }
