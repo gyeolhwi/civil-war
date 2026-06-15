@@ -1,17 +1,16 @@
-// 디스코드 `/등록` — 오버워치 내전 프로필 등록/수정 (서버리스 / HTTP 인터랙션).
+// 디스코드 `/내전-프로필` — 오버워치 내전 프로필 등록/수정 (서버리스 / HTTP 인터랙션).
 //
 // 흐름 (모든 응답은 인터랙션 HTTP 응답, 추가 REST 호출 없음):
-//   /등록 ─APPLICATION_COMMAND→ [모달] 배틀태그(자유 텍스트)
-//        ─MODAL_SUBMIT→ 멤버 저장 + [메시지] 주/부 포지션·티어 셀렉트 + 영웅/맵/완료 버튼
-//   [포지션/티어 셀렉트] ─MESSAGE_COMPONENT→ 즉시 저장 후 메시지 갱신(UPDATE_MESSAGE)
-//   [영웅 버튼] → [메시지] 탱/딜/힐 셀렉트, [맵 버튼] → [메시지] 모드별 셀렉트 (즉시 저장)
+//   /내전-프로필 ─APPLICATION_COMMAND→ (기존 계정) 메인 화면 / (신규) 배틀태그 모달
+//   메인 화면(한 메시지): 주/부 포지션+티어 셀렉트, 포지션별 등급 셀렉트, [영웅][맵][배틀태그][완료]
+//   [영웅]/[맵] 버튼 → 같은 메시지가 해당 화면으로 전환(UPDATE_MESSAGE), [↩️뒤로]로 복귀
 //
-// 누구나(권한 무관) 본인 프로필을 등록/수정할 수 있다 (권한 게이트 없음).
-// 채널 컨텍스트는 웹 세션이 없으므로 guild_id → channels.discord_guild_id 로 정한다.
-// 멤버는 discord_user_id 로 식별 → 재실행 시 본인 행을 찾아 수정한다.
+// 누구나(권한 무관) 본인 프로필을 등록/수정. 채널은 guild_id → channels.discord_guild_id.
+// 멤버는 discord_user_id 로 식별 → 재실행 시 본인 행을 찾아 수정.
 //
-// ⚠️ 모달 안 셀렉트(Label, 2025 신기능)는 이 환경에서 거부돼 "응답 없음"이 나므로
-//    쓰지 않는다. 자유 텍스트(배틀태그)만 모달, 나머지 선택값은 메시지 셀렉트로 받는다.
+// ⚠️ 모달 안 셀렉트(Label)는 이 환경에서 거부돼 "응답 없음"이 나므로 쓰지 않는다.
+//    자유 텍스트(배틀태그)만 모달, 나머지 선택값은 메시지 셀렉트로 받는다.
+// 웹 멤버폼과 표기 통일: 역할=돌격/공격/지원, 등급="N티어", 맵=모드별.
 
 import { ROLE_LABEL_KO } from "@/constants/heroes";
 import { MODE_LABEL_KO } from "@/constants/maps";
@@ -67,7 +66,8 @@ const MODE_EMOJI: Record<string, string> = {
 };
 const MAX_HEROES = 5;
 const SELECT_OPTION_CAP = 25; // 셀렉트 1개당 옵션 상한
-const DEFAULT_DIVISION: Division = 3; // 디스코드는 티어만 받고 디비전은 기본값(웹에서 조정)
+const MAX_MAP_SELECTS = 4; // 맵 화면: 셀렉트 4 + 뒤로 1 = 5행
+const DEFAULT_DIVISION: Division = 3;
 
 // 배틀태그: 이름#1234 (members/schema.ts 와 동일 규칙)
 const BATTLE_TAG_RE = /^.+#\d{3,}$/u;
@@ -163,7 +163,7 @@ interface Profile {
   battleTag: string;
   primaryRole: Role | null;
   secondaryRole: Role | null;
-  ratings: Partial<Record<Role, RoleRating>>; // 포지션별 티어·등급
+  ratings: Partial<Record<Role, RoleRating>>; // 역할별 티어·등급
   heroCodes: string[];
   mapCodes: string[];
 }
@@ -247,7 +247,7 @@ function button(style: number, label: string, emoji: string, customId: string) {
   };
 }
 
-/** 하위 화면(티어/영웅/맵)에서 메인 프로필로 돌아가는 버튼 행. */
+/** 하위 화면(영웅/맵)에서 메인 프로필로 돌아가는 버튼 행. */
 function backRow() {
   return {
     type: ComponentType.ACTION_ROW,
@@ -255,20 +255,26 @@ function backRow() {
   };
 }
 
-function roleOptions(selected: Role | null): Option[] {
-  return ROLES.map((r) => ({
-    label: ROLE_LABEL_KO[r],
-    value: r,
-    default: selected === r,
-  }));
+/** "역할 + 티어" 결합 셀렉트 옵션 (없음 + 3역할×8티어 = 25개). */
+function roleTierOptions(
+  selectedRole: Role | null,
+  selectedTier: Tier | null,
+): Option[] {
+  const opts: Option[] = [
+    { label: "없음", value: "none", default: !selectedRole },
+  ];
+  for (const r of ROLES) {
+    for (const t of TIER_ORDER) {
+      opts.push({
+        label: `${ROLE_LABEL_KO[r]} · ${TIER_LABEL_KO[t]}`,
+        value: `${r}:${t}`,
+        default: selectedRole === r && selectedTier === t,
+      });
+    }
+  }
+  return opts;
 }
-function tierOptions(selected: Tier | null): Option[] {
-  return TIER_ORDER.map((t) => ({
-    label: TIER_LABEL_KO[t],
-    value: t,
-    default: selected === t,
-  }));
-}
+
 function divisionOptions(selected: Division | null): Option[] {
   return ([5, 4, 3, 2, 1] as Division[]).map((d) => ({
     label: `${d}티어`,
@@ -277,41 +283,13 @@ function divisionOptions(selected: Division | null): Option[] {
   }));
 }
 
-/** 포지션별 티어 요약 문자열 (예: "돌격 다이아몬드 3티어 · 지원 마스터 5티어"). */
-function tierText(p: Profile): string {
-  const parts = ROLES.filter((r) => p.ratings[r]).map((r) => {
-    const x = p.ratings[r] as RoleRating;
-    return `${ROLE_LABEL_KO[r]} ${TIER_LABEL_KO[x.tier]} ${x.division}티어`;
-  });
-  return parts.length ? parts.join(" · ") : "—";
-}
-
-/** 활성 맵을 모드 순서대로 25개 이하 셀렉트로 묶는다 (각 묶음의 모드 집합 포함). */
-function mapGroups(ref: RefData): {
-  codes: { code: string; nameKo: string; mode: GameMode }[];
-  modes: GameMode[];
-}[] {
-  const byMode = MODE_ORDER.map((mode) => ({
-    mode,
-    maps: ref.maps.filter((m) => m.isActive && m.mode === mode),
-  })).filter((g) => g.maps.length > 0);
-
-  const bins: {
-    codes: { code: string; nameKo: string; mode: GameMode }[];
-    modes: GameMode[];
-  }[] = [];
-  for (const g of byMode) {
-    let bin = bins[bins.length - 1];
-    if (!bin || bin.codes.length + g.maps.length > SELECT_OPTION_CAP) {
-      bin = { codes: [], modes: [] };
-      bins.push(bin);
-    }
-    bin.modes.push(g.mode);
-    for (const m of g.maps) {
-      bin.codes.push({ code: m.code, nameKo: m.nameKo, mode: m.mode });
-    }
-  }
-  return bins;
+/** 한 포지션(역할)의 요약 텍스트 (예: "돌격 다이아몬드 3티어"). */
+function slotText(role: Role | null, ratings: Profile["ratings"]): string {
+  if (!role) return "—";
+  const r = ratings[role];
+  return r
+    ? `${ROLE_LABEL_KO[role]} ${TIER_LABEL_KO[r.tier]} ${r.division}티어`
+    : ROLE_LABEL_KO[role];
 }
 
 /** 배틀태그 입력 모달 (클래식 ActionRow + TextInput). */
@@ -338,38 +316,68 @@ function basicModal(existing: Profile | null) {
 }
 
 function profileSummary(p: Profile, note?: string): string {
-  const role = (r: Role | null) => (r ? ROLE_LABEL_KO[r] : "—");
   const lines = [
     `✅ **${p.battleTag}** 내전 프로필`,
-    `· 주 포지션: ${role(p.primaryRole)}  · 부 포지션: ${role(p.secondaryRole)}`,
-    `· 티어: ${tierText(p)}`,
+    `· 주 포지션: ${slotText(p.primaryRole, p.ratings)}`,
+    `· 부 포지션: ${slotText(p.secondaryRole, p.ratings)}`,
     `· 선호 영웅 ${p.heroCodes.length}개  · 선호 맵 ${p.mapCodes.length}개`,
-    "포지션은 아래에서, 티어·영웅·맵은 버튼에서 설정하세요.",
+    "포지션·티어는 아래에서, 영웅·맵은 버튼에서 설정하세요.",
   ];
   if (note) lines.push(`\n${note}`);
   return lines.join("\n");
 }
 
-/** 메인 프로필 메시지 (포지션·티어 셀렉트 + 영웅/맵/완료 버튼). */
+/** 메인 프로필 화면 — 주/부 포지션(역할+티어)·등급 셀렉트 + 버튼. (한 화면) */
 function profileResponse(callbackType: number, p: Profile, note?: string) {
+  const primaryTier = p.primaryRole
+    ? (p.ratings[p.primaryRole]?.tier ?? null)
+    : null;
+  const primaryDiv = p.primaryRole
+    ? (p.ratings[p.primaryRole]?.division ?? null)
+    : null;
+  const secondaryTier = p.secondaryRole
+    ? (p.ratings[p.secondaryRole]?.tier ?? null)
+    : null;
+  const secondaryDiv = p.secondaryRole
+    ? (p.ratings[p.secondaryRole]?.division ?? null)
+    : null;
   return {
     type: callbackType,
     data: {
       content: profileSummary(p, note),
       flags: EPHEMERAL,
       components: [
-        selectRow("reg:primary", "주 포지션", roleOptions(p.primaryRole), 0, 1),
         selectRow(
-          "reg:secondary",
-          "부 포지션 (선택)",
-          roleOptions(p.secondaryRole),
+          "reg:slot_primary",
+          "주 포지션 + 티어",
+          roleTierOptions(p.primaryRole, primaryTier),
+          0,
+          1,
+        ),
+        selectRow(
+          "reg:div_primary",
+          "주 포지션 등급(디비전)",
+          divisionOptions(primaryDiv),
+          0,
+          1,
+        ),
+        selectRow(
+          "reg:slot_secondary",
+          "부 포지션 + 티어",
+          roleTierOptions(p.secondaryRole, secondaryTier),
+          0,
+          1,
+        ),
+        selectRow(
+          "reg:div_secondary",
+          "부 포지션 등급(디비전)",
+          divisionOptions(secondaryDiv),
           0,
           1,
         ),
         {
           type: ComponentType.ACTION_ROW,
           components: [
-            button(ButtonStyle.PRIMARY, "티어", "🏅", "reg:open_tier"),
             button(ButtonStyle.PRIMARY, "선호 영웅", "⭐", "reg:open_heroes"),
             button(ButtonStyle.PRIMARY, "선호 맵", "🗺️", "reg:open_maps"),
             button(ButtonStyle.SECONDARY, "배틀태그", "✏️", "reg:edit_tag"),
@@ -377,50 +385,6 @@ function profileResponse(callbackType: number, p: Profile, note?: string) {
           ],
         },
       ],
-    },
-  };
-}
-
-/** 포지션별 티어·등급 화면 (주/부 포지션 각각 티어 셀렉트 + 등급 셀렉트). */
-function tierResponse(callbackType: number, p: Profile, note?: string) {
-  const roles = ROLES.filter(
-    (r) => r === p.primaryRole || r === p.secondaryRole,
-  );
-  if (!roles.length) {
-    return {
-      type: callbackType,
-      data: {
-        content: "먼저 주/부 포지션을 선택해주세요. (메인 화면 드롭다운)",
-        flags: EPHEMERAL,
-        components: [backRow()],
-      },
-    };
-  }
-  const rows = roles.flatMap((r) => {
-    const cur = p.ratings[r];
-    return [
-      selectRow(
-        `reg:tier_${r}`,
-        `${ROLE_LABEL_KO[r]} 티어`,
-        tierOptions(cur?.tier ?? null),
-        0,
-        1,
-      ),
-      selectRow(
-        `reg:div_${r}`,
-        `${ROLE_LABEL_KO[r]} 등급(디비전)`,
-        divisionOptions(cur?.division ?? null),
-        0,
-        1,
-      ),
-    ];
-  });
-  return {
-    type: callbackType,
-    data: {
-      content: `🏅 포지션별 티어·등급 — ${tierText(p)}${note ? `\n${note}` : ""}`,
-      flags: EPHEMERAL,
-      components: [...rows, backRow()],
     },
   };
 }
@@ -452,14 +416,41 @@ function heroResponse(
   return {
     type: callbackType,
     data: {
-      content: `⭐ 선호 영웅 — 포지션과 무관하게 **전부 합쳐 최대 ${MAX_HEROES}개**만 저장돼요. (현재 ${p.heroCodes.length}/${MAX_HEROES})\n역할별 드롭다운에서 고르면 합산됩니다.${note ? `\n${note}` : ""}`,
+      content: `⭐ 선호 영웅 — 포지션과 무관하게 **전부 합쳐 최대 ${MAX_HEROES}개**만 저장돼요. (현재 ${p.heroCodes.length}/${MAX_HEROES})${note ? `\n${note}` : ""}`,
       flags: EPHEMERAL,
       components: [...rows, backRow()],
     },
   };
 }
 
-/** 활성 맵을 25개 청크로 나눈 목록 (셀렉트 옵션 상한 때문). */
+/** 활성 맵을 모드별 셀렉트로 묶는다. 모드 수가 한도(4)를 넘으면 작은 모드부터 합침. */
+function mapGroups(ref: RefData): {
+  codes: { code: string; nameKo: string; mode: GameMode }[];
+  modes: GameMode[];
+}[] {
+  const bins = MODE_ORDER.map((mode) => ({
+    modes: [mode] as GameMode[],
+    codes: ref.maps
+      .filter((m) => m.isActive && m.mode === mode)
+      .map((m) => ({ code: m.code, nameKo: m.nameKo, mode: m.mode })),
+  })).filter((b) => b.codes.length > 0);
+
+  // 셀렉트 개수 한도 초과 시: 가장 작은 묶음을 직전 묶음에 합침 (≤25 유지)
+  while (bins.length > MAX_MAP_SELECTS) {
+    let smallest = 0;
+    for (let i = 1; i < bins.length; i++) {
+      if (bins[i].codes.length < bins[smallest].codes.length) smallest = i;
+    }
+    const target = smallest > 0 ? smallest - 1 : smallest + 1;
+    const [from, to] =
+      target < smallest ? [smallest, target] : [target, smallest];
+    bins[to].codes.push(...bins[from].codes);
+    bins[to].modes.push(...bins[from].modes);
+    bins.splice(from, 1);
+  }
+  return bins;
+}
+
 function mapResponse(callbackType: number, p: Profile, ref: RefData) {
   const selected = new Set(p.mapCodes);
   const rows = mapGroups(ref).map((g, n) =>
@@ -478,7 +469,7 @@ function mapResponse(callbackType: number, p: Profile, ref: RefData) {
   return {
     type: callbackType,
     data: {
-      content: `🗺️ 선호 맵 — 모드별로 나뉘어 있어요. (현재 ${p.mapCodes.length}개)`,
+      content: `🗺️ 선호 맵 — 모드별로 고르세요. (현재 ${p.mapCodes.length}개)`,
       flags: EPHEMERAL,
       components: [...rows, backRow()],
     },
@@ -520,7 +511,7 @@ function firstValue(sub: Submitted, key: string): string | undefined {
 
 // ── 핸들러 ─────────────────────────────────────────────────────────────────
 /**
- * `/등록` 관련 인터랙션 처리. 반환값은 인터랙션 응답 body.
+ * `/내전-프로필` 관련 인터랙션 처리. 반환값은 인터랙션 응답 body.
  * 예외·지연은 타임아웃("응답 없음") 대신 ephemeral 에러로 노출한다.
  */
 export async function handleRegister(
@@ -552,8 +543,7 @@ async function handleRegisterInner(interaction: Interaction): Promise<object> {
     );
   }
 
-  // 슬래시: 이미 등록된 계정이면 곧장 수정 화면(배틀태그 다시 안 물음).
-  // 신규 계정이면 배틀태그 입력 모달.
+  // 슬래시: 이미 등록된 계정이면 곧장 수정 화면, 신규면 배틀태그 모달.
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     if (memberId) {
       await ensureChannelMembership(sb, channelId, memberId);
@@ -569,9 +559,7 @@ async function handleRegisterInner(interaction: Interaction): Promise<object> {
   }
 
   if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
-    if (!memberId) {
-      return ephemeral("먼저 `/등록`으로 배틀태그를 입력해주세요.");
-    }
+    if (!memberId) return ephemeral("먼저 등록을 시작해주세요.");
     return handleComponent(sb, channelId, memberId, interaction);
   }
 
@@ -630,82 +618,91 @@ async function handleComponent(
     return basicModal(p);
   }
 
-  // 포지션 — 해당 컬럼만 갱신 (다른 값 보존)
-  if (cid === "reg:primary" || cid === "reg:secondary") {
-    const field = cid === "reg:primary" ? "primary_role" : "secondary_role";
-    const role = asRole(values[0]);
-    await sb
-      .from("channel_members")
-      .update({ [field]: role })
-      .match({ channel_id: channelId, member_id: memberId });
-    const p = await loadProfile(sb, channelId, memberId);
-    if (!p) return ephemeral("프로필을 불러오지 못했어요.");
-    return profileResponse(CallbackType.UPDATE_MESSAGE, p);
-  }
-
-  // 뒤로 → 메인 프로필 화면 (같은 메시지 갱신)
+  // 뒤로 → 메인 프로필 (같은 메시지 갱신)
   if (cid === "reg:back") {
     const p = await loadProfile(sb, channelId, memberId);
     if (!p) return ephemeral("프로필을 불러오지 못했어요.");
     return profileResponse(CallbackType.UPDATE_MESSAGE, p);
   }
 
-  // 티어 화면 열기 (같은 메시지 전환)
-  if (cid === "reg:open_tier") {
+  // 주/부 포지션 = "역할+티어" 결합 셀렉트
+  if (cid === "reg:slot_primary" || cid === "reg:slot_secondary") {
+    const isPrimary = cid === "reg:slot_primary";
+    const field = isPrimary ? "primary_role" : "secondary_role";
     const p = await loadProfile(sb, channelId, memberId);
     if (!p) return ephemeral("프로필을 불러오지 못했어요.");
-    return tierResponse(CallbackType.UPDATE_MESSAGE, p);
-  }
 
-  // 포지션별 티어 — 등급(디비전)은 기존값 또는 기본값
-  if (cid.startsWith("reg:tier_")) {
-    const role = asRole(cid.slice("reg:tier_".length));
-    const tier = asTier(values[0]);
-    const p = await loadProfile(sb, channelId, memberId);
-    if (!p || !role) return ephemeral("프로필을 불러오지 못했어요.");
-    if (tier) {
-      const division = p.ratings[role]?.division ?? DEFAULT_DIVISION;
-      const rr = await upsertRoleRating(
-        sb,
-        channelId,
-        memberId,
-        role,
-        tier,
-        division,
-      );
-      if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
-      p.ratings[role] = { tier, division };
+    const v = values[0];
+    if (!v || v === "none") {
+      await sb
+        .from("channel_members")
+        .update({ [field]: null })
+        .match({ channel_id: channelId, member_id: memberId });
+      if (isPrimary) p.primaryRole = null;
+      else p.secondaryRole = null;
+      return profileResponse(CallbackType.UPDATE_MESSAGE, p);
     }
-    return tierResponse(CallbackType.UPDATE_MESSAGE, p);
-  }
 
-  // 포지션별 등급(디비전) — 그 포지션 티어가 먼저 있어야 함
-  if (cid.startsWith("reg:div_")) {
-    const role = asRole(cid.slice("reg:div_".length));
-    const division = asDivision(values[0]);
-    const p = await loadProfile(sb, channelId, memberId);
-    if (!p || !role) return ephemeral("프로필을 불러오지 못했어요.");
-    const curTier = p.ratings[role]?.tier;
-    if (division && curTier) {
-      const rr = await upsertRoleRating(
-        sb,
-        channelId,
-        memberId,
-        role,
-        curTier,
-        division,
-      );
-      if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
-      p.ratings[role] = { tier: curTier, division };
-      return tierResponse(CallbackType.UPDATE_MESSAGE, p);
-    }
-    return tierResponse(
-      CallbackType.UPDATE_MESSAGE,
-      p,
-      "⚠️ 먼저 그 포지션의 티어를 선택해주세요.",
+    const [roleStr, tierStr] = v.split(":");
+    const role = asRole(roleStr);
+    const tier = asTier(tierStr);
+    if (!role || !tier) return profileResponse(CallbackType.UPDATE_MESSAGE, p);
+
+    await sb
+      .from("channel_members")
+      .update({ [field]: role })
+      .match({ channel_id: channelId, member_id: memberId });
+    const division = p.ratings[role]?.division ?? DEFAULT_DIVISION;
+    const rr = await upsertRoleRating(
+      sb,
+      channelId,
+      memberId,
+      role,
+      tier,
+      division,
     );
+    if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
+    if (isPrimary) p.primaryRole = role;
+    else p.secondaryRole = role;
+    p.ratings[role] = { tier, division };
+    return profileResponse(CallbackType.UPDATE_MESSAGE, p);
   }
 
+  // 포지션별 등급(디비전) — 그 포지션의 티어가 먼저 있어야 적용
+  if (cid === "reg:div_primary" || cid === "reg:div_secondary") {
+    const p = await loadProfile(sb, channelId, memberId);
+    if (!p) return ephemeral("프로필을 불러오지 못했어요.");
+    const target = cid === "reg:div_primary" ? p.primaryRole : p.secondaryRole;
+    const division = asDivision(values[0]);
+    if (!target) {
+      return profileResponse(
+        CallbackType.UPDATE_MESSAGE,
+        p,
+        "⚠️ 먼저 해당 포지션(역할+티어)을 선택해주세요.",
+      );
+    }
+    const tier = p.ratings[target]?.tier;
+    if (!tier || !division) {
+      return profileResponse(
+        CallbackType.UPDATE_MESSAGE,
+        p,
+        "⚠️ 먼저 해당 포지션의 티어를 선택해주세요.",
+      );
+    }
+    const rr = await upsertRoleRating(
+      sb,
+      channelId,
+      memberId,
+      target,
+      tier,
+      division,
+    );
+    if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
+    p.ratings[target] = { tier, division };
+    return profileResponse(CallbackType.UPDATE_MESSAGE, p);
+  }
+
+  // 영웅/맵 화면 열기 (같은 메시지 전환)
   if (cid === "reg:open_heroes" || cid === "reg:open_maps") {
     const [ref, p] = await Promise.all([
       getRefData(),
@@ -724,8 +721,7 @@ async function handleComponent(
       loadProfile(sb, channelId, memberId),
     ]);
     if (!p || !role) return ephemeral("프로필을 불러오지 못했어요.");
-    // 이 역할의 기존 선택을 빼고 새 선택으로 교체 (다른 역할 영웅은 보존).
-    // 합쳐 5개 초과면 거부 대신 방금 고른 것 우선으로 잘라 저장(관대 처리).
+    // 이 역할의 기존 선택을 빼고 새 선택으로 교체. 합쳐 5개 초과면 방금 고른 것 우선으로 잘라 저장.
     const others = p.heroCodes.filter((c) => ref.heroByCode[c]?.role !== role);
     let next = [...values, ...others];
     let note: string | undefined;
