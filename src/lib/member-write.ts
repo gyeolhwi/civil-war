@@ -56,9 +56,21 @@ export async function upsertMemberCore(
   if (!memberId) {
     const { data } = await sb
       .from("members")
-      .select("id")
+      .select("id, discord_user_id")
       .eq("battle_tag", input.battleTag)
       .maybeSingle();
+    // 배틀태그가 이미 다른 디스코드 계정에 묶여 있으면 가로채기/중복 등록 차단.
+    if (
+      data &&
+      input.discordUserId &&
+      data.discord_user_id &&
+      data.discord_user_id !== input.discordUserId
+    ) {
+      return {
+        ok: false,
+        error: "이 배틀태그는 다른 디스코드 계정에 연결돼 있어요.",
+      };
+    }
     memberId = data?.id ?? null;
   }
 
@@ -82,6 +94,25 @@ export async function upsertMemberCore(
   if (error || !data)
     return { ok: false, error: mapMemberError(error?.message) };
   return { ok: true, memberId: data.id as string };
+}
+
+/**
+ * 채널 매핑 행만 보장 (있으면 그대로 둠 — 포지션 등 기존 값 보존).
+ * 디스코드 등록에서 배틀태그 저장 시 행만 만들고, 포지션은 이후 셀렉트로 갱신한다.
+ */
+export async function ensureChannelMembership(
+  sb: SupabaseClient,
+  channelId: string,
+  memberId: string,
+): Promise<WriteResult> {
+  const { error } = await sb
+    .from("channel_members")
+    .upsert(
+      { channel_id: channelId, member_id: memberId },
+      { onConflict: "channel_id,member_id", ignoreDuplicates: true },
+    );
+  if (error) return { ok: false, error: mapMemberError(error.message) };
+  return { ok: true };
 }
 
 /** 채널 매핑 + 주/부 포지션 (현재 채널 것만, 다른 채널 불변 SC-13). */

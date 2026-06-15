@@ -1,25 +1,25 @@
-// 디스코드 `/등록` 멤버 등록/수정 위저드 (서버리스 / HTTP 인터랙션).
+// 디스코드 `/등록` — 오버워치 내전 프로필 등록/수정 (서버리스 / HTTP 인터랙션).
 //
-// 흐름 (모달 체인 — 모든 응답은 인터랙션 HTTP 응답, 추가 REST 호출 없음):
-//   /등록  ─APPLICATION_COMMAND→ [모달 reg:basic] 배틀태그+포지션+티어
-//          ─MODAL_SUBMIT→ 멤버 저장 + ephemeral 메뉴(영웅/맵/완료 버튼)
-//   [영웅 버튼] ─MESSAGE_COMPONENT→ [모달 reg:heroes] 탱/딜/힐 셀렉트
-//          ─MODAL_SUBMIT→ 영웅 저장 + 메뉴
-//   [맵 버튼]   ─MESSAGE_COMPONENT→ [모달 reg:maps] 모드별 셀렉트
-//          ─MODAL_SUBMIT→ 맵 저장 + 메뉴
-//   [완료 버튼] ─MESSAGE_COMPONENT→ ephemeral "완료"
+// 흐름 (모든 응답은 인터랙션 HTTP 응답, 추가 REST 호출 없음):
+//   /등록 ─APPLICATION_COMMAND→ [모달] 배틀태그(자유 텍스트)
+//        ─MODAL_SUBMIT→ 멤버 저장 + [메시지] 주/부 포지션·티어 셀렉트 + 영웅/맵/완료 버튼
+//   [포지션/티어 셀렉트] ─MESSAGE_COMPONENT→ 즉시 저장 후 메시지 갱신(UPDATE_MESSAGE)
+//   [영웅 버튼] → [메시지] 탱/딜/힐 셀렉트, [맵 버튼] → [메시지] 모드별 셀렉트 (즉시 저장)
 //
+// 누구나(권한 무관) 본인 프로필을 등록/수정할 수 있다 (권한 게이트 없음).
 // 채널 컨텍스트는 웹 세션이 없으므로 guild_id → channels.discord_guild_id 로 정한다.
-// 멤버는 discord_user_id 로 식별 → 재실행 시 본인 행을 찾아 프리필·수정한다.
-// 모달 안 셀렉트 메뉴는 Label(type 18) 안에 배치한다 (2025+ 표준, docs.discord.com).
+// 멤버는 discord_user_id 로 식별 → 재실행 시 본인 행을 찾아 수정한다.
+//
+// ⚠️ 모달 안 셀렉트(Label, 2025 신기능)는 이 환경에서 거부돼 "응답 없음"이 나므로
+//    쓰지 않는다. 자유 텍스트(배틀태그)만 모달, 나머지 선택값은 메시지 셀렉트로 받는다.
 
 import { ROLE_LABEL_KO } from "@/constants/heroes";
 import { TIER_LABEL_KO, TIER_ORDER } from "@/constants/tiers";
-import type { Division, Role, Tier } from "@/domain/types";
+import type { Division, RefData, Role, Tier } from "@/domain/types";
 import {
+  ensureChannelMembership,
   replaceHeroPrefs,
   replaceMapPrefs,
-  upsertChannelMembership,
   upsertMemberCore,
   upsertRoleRating,
 } from "@/lib/member-write";
@@ -29,6 +29,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // ── Discord enum (공식 문서) ──────────────────────────────────────────────
 const CallbackType = {
   CHANNEL_MESSAGE_WITH_SOURCE: 4,
+  UPDATE_MESSAGE: 7,
   MODAL: 9,
 } as const;
 const ComponentType = {
@@ -36,10 +37,14 @@ const ComponentType = {
   BUTTON: 2,
   STRING_SELECT: 3,
   TEXT_INPUT: 4,
-  LABEL: 18,
 } as const;
 const ButtonStyle = { PRIMARY: 1, SECONDARY: 2, SUCCESS: 3 } as const;
 const TextInputStyle = { SHORT: 1 } as const;
+const InteractionType = {
+  APPLICATION_COMMAND: 2,
+  MESSAGE_COMPONENT: 3,
+  MODAL_SUBMIT: 5,
+} as const;
 const EPHEMERAL = 64;
 
 const ROLES: Role[] = ["tank", "dps", "support"];
@@ -58,6 +63,7 @@ const MODE_EMOJI: Record<string, string> = {
 };
 const MAX_HEROES = 5;
 const SELECT_OPTION_CAP = 25; // 셀렉트 1개당 옵션 상한
+const DEFAULT_DIVISION: Division = 3; // 디스코드는 티어만 받고 디비전은 기본값(웹에서 조정)
 
 // 배틀태그: 이름#1234 (members/schema.ts 와 동일 규칙)
 const BATTLE_TAG_RE = /^.+#\d{3,}$/u;
@@ -111,7 +117,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 // ── 채널·멤버 해석 ─────────────────────────────────────────────────────────
 type Sb = ReturnType<typeof createAdminClient>;
 
-/** guild_id → 내전 채널. 없으면 v1 단일 채널을 자동 연결(1:1 운영 전제). */
+/** guild_id → 내전 그룹(채널). 미연결이고 그룹이 정확히 1개면 자동 연결. */
 async function resolveChannelId(
   sb: Sb,
   guildId: string | undefined,
@@ -124,7 +130,6 @@ async function resolveChannelId(
     .maybeSingle();
   if (data) return data.id as string;
 
-  // 미연결 + 채널이 정확히 1개면 이 길드에 자동 연결한다.
   const { data: all } = await sb.from("channels").select("id").limit(2);
   if (all && all.length === 1) {
     await sb
@@ -133,7 +138,7 @@ async function resolveChannelId(
       .eq("id", all[0].id);
     return all[0].id as string;
   }
-  return null; // 채널이 여러 개라 모호 → 관리자 연결 필요
+  return null;
 }
 
 async function resolveMemberId(
@@ -148,7 +153,7 @@ async function resolveMemberId(
   return data?.id ?? null;
 }
 
-interface ExistingProfile {
+interface Profile {
   battleTag: string;
   primaryRole: Role | null;
   secondaryRole: Role | null;
@@ -158,12 +163,12 @@ interface ExistingProfile {
   mapCodes: string[];
 }
 
-/** 프리필용 기존 값 로드 (없으면 null). */
-async function loadExisting(
+/** 프리필/요약용 기존 값 로드 (멤버 없으면 null). */
+async function loadProfile(
   sb: Sb,
   channelId: string,
   memberId: string,
-): Promise<ExistingProfile | null> {
+): Promise<Profile | null> {
   const [m, cm, ratings, heroes, maps] = await Promise.all([
     sb.from("members").select("battle_tag").eq("id", memberId).maybeSingle(),
     sb
@@ -186,7 +191,6 @@ async function loadExisting(
   ]);
   if (!m.data) return null;
   const primaryRole = (cm.data?.primary_role ?? null) as Role | null;
-  // 주 포지션의 티어를 프리필 (모달은 주 티어만 받음)
   const primaryRating = ratings.data?.find((r) => r.role === primaryRole);
   return {
     battleTag: m.data.battle_tag as string,
@@ -202,23 +206,35 @@ async function loadExisting(
 // ── 컴포넌트 빌더 ──────────────────────────────────────────────────────────
 type Option = { label: string; value: string; default?: boolean };
 
-function selectLabel(
-  labelText: string,
+function selectRow(
   customId: string,
+  placeholder: string,
   options: Option[],
-  opts: { min: number; max: number; placeholder: string },
+  min: number,
+  max: number,
 ) {
   return {
-    type: ComponentType.LABEL,
-    label: labelText,
-    component: {
-      type: ComponentType.STRING_SELECT,
-      custom_id: customId,
-      placeholder: opts.placeholder,
-      min_values: opts.min,
-      max_values: Math.min(opts.max, options.length || 1),
-      options,
-    },
+    type: ComponentType.ACTION_ROW,
+    components: [
+      {
+        type: ComponentType.STRING_SELECT,
+        custom_id: customId,
+        placeholder,
+        min_values: min,
+        max_values: Math.min(max, options.length || 1),
+        options,
+      },
+    ],
+  };
+}
+
+function button(style: number, label: string, emoji: string, customId: string) {
+  return {
+    type: ComponentType.BUTTON,
+    style,
+    label,
+    emoji: { name: emoji },
+    custom_id: customId,
   };
 }
 
@@ -229,7 +245,6 @@ function roleOptions(selected: Role | null): Option[] {
     default: selected === r,
   }));
 }
-
 function tierOptions(selected: Tier | null): Option[] {
   return TIER_ORDER.map((t) => ({
     label: TIER_LABEL_KO[t],
@@ -238,21 +253,8 @@ function tierOptions(selected: Tier | null): Option[] {
   }));
 }
 
-function divisionOptions(selected: Division | null): Option[] {
-  return ([5, 4, 3, 2, 1] as Division[]).map((d) => ({
-    label: `${d}`,
-    value: String(d),
-    default: selected === d,
-  }));
-}
-
-/**
- * 기본정보 모달 — 배틀태그(텍스트)만. 클래식 구조(ActionRow + TextInput).
- * 모달 안 셀렉트(Label, 2025 신기능)는 일부 클라이언트에서 거부돼 "응답 없음"이
- * 나므로 쓰지 않는다. 포지션·티어 등 선택값은 제출 후 메시지 셀렉트로 받는다.
- */
-function basicModal(existing: ExistingProfile | null) {
-  // 빈 value 는 min_length 와 모순돼 모달이 거부될 수 있으므로 값이 있을 때만 넣는다.
+/** 배틀태그 입력 모달 (클래식 ActionRow + TextInput). */
+function basicModal(existing: Profile | null) {
   const textInput: Record<string, unknown> = {
     type: ComponentType.TEXT_INPUT,
     custom_id: "battle_tag",
@@ -268,46 +270,53 @@ function basicModal(existing: ExistingProfile | null) {
     type: CallbackType.MODAL,
     data: {
       custom_id: "reg:basic",
-      title: "내전 멤버 등록",
-      components: [
-        { type: ComponentType.ACTION_ROW, components: [textInput] },
-      ],
+      title: "오버워치 - 내전 프로필 등록/수정",
+      components: [{ type: ComponentType.ACTION_ROW, components: [textInput] }],
     },
   };
 }
 
-/** 등록 단계 메뉴 (영웅/맵/완료 버튼). */
-function menuMessage(content: string) {
+function profileSummary(p: Profile, note?: string): string {
+  const role = (r: Role | null) => (r ? ROLE_PICK_LABEL[r] : "—");
+  const lines = [
+    `✅ **${p.battleTag}** 내전 프로필`,
+    `· 주 포지션: ${role(p.primaryRole)}  · 부 포지션: ${role(p.secondaryRole)}  · 티어: ${p.tier ? TIER_LABEL_KO[p.tier] : "—"}`,
+    `· 선호 영웅 ${p.heroCodes.length}개  · 선호 맵 ${p.mapCodes.length}개`,
+    "아래에서 고르면 바로 저장돼요. (영웅·맵은 버튼)",
+  ];
+  if (note) lines.push(`\n${note}`);
+  return lines.join("\n");
+}
+
+/** 메인 프로필 메시지 (포지션·티어 셀렉트 + 영웅/맵/완료 버튼). */
+function profileResponse(callbackType: number, p: Profile, note?: string) {
   return {
-    type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
+    type: callbackType,
     data: {
-      content,
+      content: profileSummary(p, note),
       flags: EPHEMERAL,
       components: [
+        selectRow("reg:primary", "주 포지션", roleOptions(p.primaryRole), 0, 1),
+        selectRow(
+          "reg:secondary",
+          "부 포지션 (선택)",
+          roleOptions(p.secondaryRole),
+          0,
+          1,
+        ),
+        selectRow(
+          "reg:tier",
+          "티어 (주 포지션 기준)",
+          tierOptions(p.tier),
+          0,
+          1,
+        ),
         {
           type: ComponentType.ACTION_ROW,
           components: [
-            {
-              type: ComponentType.BUTTON,
-              style: ButtonStyle.PRIMARY,
-              label: "선호 영웅",
-              emoji: { name: "⭐" },
-              custom_id: "reg:open_heroes",
-            },
-            {
-              type: ComponentType.BUTTON,
-              style: ButtonStyle.PRIMARY,
-              label: "선호 맵",
-              emoji: { name: "🗺️" },
-              custom_id: "reg:open_maps",
-            },
-            {
-              type: ComponentType.BUTTON,
-              style: ButtonStyle.SUCCESS,
-              label: "완료",
-              emoji: { name: "✅" },
-              custom_id: "reg:done",
-            },
+            button(ButtonStyle.PRIMARY, "선호 영웅", "⭐", "reg:open_heroes"),
+            button(ButtonStyle.PRIMARY, "선호 맵", "🗺️", "reg:open_maps"),
+            button(ButtonStyle.SUCCESS, "완료", "✅", "reg:done"),
           ],
         },
       ],
@@ -315,11 +324,15 @@ function menuMessage(content: string) {
   };
 }
 
-async function heroesModal(existing: ExistingProfile | null) {
-  const { heroesByRole } = await getRefData();
-  const selected = new Set(existing?.heroCodes ?? []);
-  const components = ROLES.map((role) => {
-    const opts: Option[] = heroesByRole[role]
+function heroResponse(
+  callbackType: number,
+  p: Profile,
+  ref: RefData,
+  note?: string,
+) {
+  const selected = new Set(p.heroCodes);
+  const rows = ROLES.map((role) => {
+    const opts: Option[] = ref.heroesByRole[role]
       .filter((h) => h.isActive)
       .slice(0, SELECT_OPTION_CAP)
       .map((h) => ({
@@ -327,50 +340,64 @@ async function heroesModal(existing: ExistingProfile | null) {
         value: h.code,
         default: selected.has(h.code),
       }));
-    return selectLabel(`${ROLE_LABEL_KO[role]} 영웅`, `hero_${role}`, opts, {
-      min: 0,
-      max: MAX_HEROES,
-      placeholder: "선호 영웅 (전체 합쳐 최대 5)",
-    });
+    return selectRow(
+      `reg:hero_${role}`,
+      `${ROLE_LABEL_KO[role]} 영웅`,
+      opts,
+      0,
+      MAX_HEROES,
+    );
   });
   return {
-    type: CallbackType.MODAL,
-    data: { custom_id: "reg:heroes", title: "선호 영웅 (최대 5)", components },
+    type: callbackType,
+    data: {
+      content: `⭐ 선호 영웅 (전체 합쳐 최대 ${MAX_HEROES}개) — 현재 ${p.heroCodes.length}개${note ? `\n${note}` : ""}`,
+      flags: EPHEMERAL,
+      components: rows,
+    },
   };
 }
 
-async function mapsModal(existing: ExistingProfile | null) {
-  const { maps } = await getRefData();
-  const selected = new Set(existing?.mapCodes ?? []);
-  const active = maps.filter((m) => m.isActive);
-  const allOptions: Option[] = active.map((m) => ({
-    label: `${MODE_EMOJI[m.mode] ?? ""} ${m.nameKo}`.trim(),
-    value: m.code,
-    default: selected.has(m.code),
-  }));
-  // 셀렉트당 25개 제한 → 청크로 분할 (37개 → 2개)
-  const components = [];
-  for (let i = 0; i < allOptions.length; i += SELECT_OPTION_CAP) {
-    const chunk = allOptions.slice(i, i + SELECT_OPTION_CAP);
-    const n = Math.floor(i / SELECT_OPTION_CAP) + 1;
-    components.push(
-      selectLabel(`선호 맵 (${n})`, `map_${n}`, chunk, {
-        min: 0,
-        max: chunk.length,
-        placeholder: "선호 맵 선택",
-      }),
-    );
+/** 활성 맵을 25개 청크로 나눈 목록 (셀렉트 옵션 상한 때문). */
+function mapChunks(
+  ref: RefData,
+): { code: string; nameKo: string; mode: string }[][] {
+  const active = ref.maps.filter((m) => m.isActive);
+  const chunks = [];
+  for (let i = 0; i < active.length; i += SELECT_OPTION_CAP) {
+    chunks.push(active.slice(i, i + SELECT_OPTION_CAP));
   }
+  return chunks;
+}
+
+function mapResponse(callbackType: number, p: Profile, ref: RefData) {
+  const selected = new Set(p.mapCodes);
+  const rows = mapChunks(ref).map((chunk, n) =>
+    selectRow(
+      `reg:map_${n}`,
+      `선호 맵 ${n + 1}`,
+      chunk.map((m) => ({
+        label: `${MODE_EMOJI[m.mode] ?? ""} ${m.nameKo}`.trim(),
+        value: m.code,
+        default: selected.has(m.code),
+      })),
+      0,
+      chunk.length,
+    ),
+  );
   return {
-    type: CallbackType.MODAL,
-    data: { custom_id: "reg:maps", title: "선호 맵", components },
+    type: callbackType,
+    data: {
+      content: `🗺️ 선호 맵 — 현재 ${p.mapCodes.length}개`,
+      flags: EPHEMERAL,
+      components: rows,
+    },
   };
 }
 
 // ── 모달 제출 값 파싱 ──────────────────────────────────────────────────────
 type Submitted = Record<string, { value?: string; values?: string[] }>;
 
-/** Label/ActionRow 중첩을 재귀로 훑어 custom_id 별 값을 모은다. */
 function collectSubmitted(root: unknown): Submitted {
   const out: Submitted = {};
   const walk = (node: unknown) => {
@@ -402,16 +429,9 @@ function firstValue(sub: Submitted, key: string): string | undefined {
 }
 
 // ── 핸들러 ─────────────────────────────────────────────────────────────────
-const InteractionType = {
-  APPLICATION_COMMAND: 2,
-  MESSAGE_COMPONENT: 3,
-  MODAL_SUBMIT: 5,
-} as const;
-
 /**
  * `/등록` 관련 인터랙션 처리. 반환값은 인터랙션 응답 body.
- * 예외는 타임아웃("적시에 응답하지 않음") 대신 ephemeral 에러로 노출해
- * 원인을 즉시 확인할 수 있게 한다 (모달은 defer 불가라 3초 내 응답 필수).
+ * 예외·지연은 타임아웃("응답 없음") 대신 ephemeral 에러로 노출한다.
  */
 export async function handleRegister(
   interaction: Interaction,
@@ -431,17 +451,12 @@ async function handleRegisterInner(interaction: Interaction): Promise<object> {
   if (!discordUserId)
     return ephemeral("디스코드 사용자 정보를 찾을 수 없어요.");
 
-  // 1) 슬래시 `/등록` → 즉시 기본정보 모달.
-  // 모달은 defer 불가(3초 한도)라, 느릴 수 있는 DB 접근을 여기서 하지 않는다.
-  // 연결 확인·프리필은 제출(reg:basic) 시점에 처리한다.
+  // 슬래시 `/등록` → 즉시 배틀태그 모달 (DB 미접근, 3초 한도 회피).
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     return basicModal(null);
   }
 
   const sb = createAdminClient();
-
-  // 길드 ↔ 그룹 연결은 채널(그룹) 등록 시 discord_guild_id 로 설정한다.
-  // 채널·멤버 조회를 병렬로 돌려 응답 시간을 줄인다.
   const [channelId, memberId] = await Promise.all([
     resolveChannelId(sb, interaction.guild_id),
     resolveMemberId(sb, discordUserId),
@@ -452,131 +467,160 @@ async function handleRegisterInner(interaction: Interaction): Promise<object> {
     );
   }
 
-  // 2) 버튼 → 영웅/맵 모달 or 완료
-  if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
-    const cid = interaction.data?.custom_id;
-    const existing = memberId
-      ? await loadExisting(sb, channelId, memberId)
-      : null;
-    if (cid === "reg:open_heroes") return heroesModal(existing);
-    if (cid === "reg:open_maps") return mapsModal(existing);
-    if (cid === "reg:done") {
-      return ephemeral("🎉 등록 완료! 웹에서 더 자세히 수정할 수 있어요.");
-    }
-    return ephemeral("알 수 없는 동작이에요.");
+  if (interaction.type === InteractionType.MODAL_SUBMIT) {
+    return handleModalSubmit(sb, channelId, discordUserId, user, interaction);
   }
 
-  // 3) 모달 제출 → 저장
-  if (interaction.type === InteractionType.MODAL_SUBMIT) {
-    const cid = interaction.data?.custom_id;
-    const sub = collectSubmitted(interaction.data?.components);
-
-    if (cid === "reg:basic") {
-      return saveBasic(sb, channelId, discordUserId, getDiscordName(user), sub);
+  if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
+    if (!memberId) {
+      return ephemeral("먼저 `/등록`으로 배틀태그를 입력해주세요.");
     }
-    if (cid === "reg:heroes") {
-      return saveHeroes(sb, channelId, discordUserId, sub);
-    }
-    if (cid === "reg:maps") {
-      return saveMaps(sb, channelId, discordUserId, sub);
-    }
-    return ephemeral("알 수 없는 양식이에요.");
+    return handleComponent(sb, channelId, memberId, interaction);
   }
 
   return ephemeral("처리할 수 없는 요청이에요.");
 }
 
-async function saveBasic(
+async function handleModalSubmit(
   sb: Sb,
   channelId: string,
   discordUserId: string,
-  discordName: string | null,
-  sub: Submitted,
+  user: DiscordUser | undefined,
+  interaction: Interaction,
 ): Promise<object> {
+  if (interaction.data?.custom_id !== "reg:basic") {
+    return ephemeral("알 수 없는 양식이에요.");
+  }
+  const sub = collectSubmitted(interaction.data?.components);
   const battleTag = (firstValue(sub, "battle_tag") ?? "").trim();
   if (!BATTLE_TAG_RE.test(battleTag)) {
     return ephemeral("배틀태그는 이름#숫자 형식이어야 해요 (예: 홍길동#1234).");
   }
-  const primaryRole = asRole(firstValue(sub, "primary_role"));
-  const secondaryRole = asRole(firstValue(sub, "secondary_role"));
-  const tier = asTier(firstValue(sub, "tier"));
-  const division = asDivision(firstValue(sub, "division"));
 
   const core = await upsertMemberCore(sb, {
     battleTag,
-    discordName,
+    discordName: getDiscordName(user),
     discordUserId,
   });
   if (!core.ok) return ephemeral(`저장 실패: ${core.error}`);
 
-  const cm = await upsertChannelMembership(sb, channelId, core.memberId, {
-    primaryRole,
-    secondaryRole,
-  });
-  if (!cm.ok) return ephemeral(`저장 실패: ${cm.error}`);
+  const ensured = await ensureChannelMembership(sb, channelId, core.memberId);
+  if (!ensured.ok) return ephemeral(`저장 실패: ${ensured.error}`);
 
-  // 티어는 주 포지션 기준으로만 저장 (다른 역할 티어는 보존)
-  if (primaryRole && tier && division) {
-    const rr = await upsertRoleRating(
-      sb,
-      channelId,
-      core.memberId,
-      primaryRole,
-      tier,
-      division,
-    );
-    if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
-  }
-
-  return menuMessage(
-    `✅ **${battleTag}** 기본 정보가 저장됐어요!\n아래에서 선호 영웅·맵을 추가하거나 **완료**를 눌러주세요.`,
-  );
+  const profile = await loadProfile(sb, channelId, core.memberId);
+  if (!profile) return ephemeral("저장 실패: 프로필을 불러오지 못했어요.");
+  return profileResponse(CallbackType.CHANNEL_MESSAGE_WITH_SOURCE, profile);
 }
 
-async function saveHeroes(
+async function handleComponent(
   sb: Sb,
   channelId: string,
-  discordUserId: string,
-  sub: Submitted,
+  memberId: string,
+  interaction: Interaction,
 ): Promise<object> {
-  const memberId = await resolveMemberId(sb, discordUserId);
-  if (!memberId) return ephemeral("먼저 `/등록`으로 기본 정보를 입력해주세요.");
+  const cid = interaction.data?.custom_id ?? "";
+  const values = interaction.data?.values ?? [];
 
-  const codes = [
-    ...(sub.hero_tank?.values ?? []),
-    ...(sub.hero_dps?.values ?? []),
-    ...(sub.hero_support?.values ?? []),
-  ];
-  if (codes.length > MAX_HEROES) {
+  if (cid === "reg:done") {
     return ephemeral(
-      `선호 영웅은 전체 합쳐 최대 ${MAX_HEROES}개예요 (지금 ${codes.length}개 선택). 다시 골라주세요.`,
+      "🎉 내전 프로필 저장 완료! 웹에서 더 자세히 수정할 수 있어요.",
     );
   }
-  const r = await replaceHeroPrefs(sb, channelId, memberId, codes);
-  if (!r.ok) return ephemeral(`저장 실패: ${r.error}`);
-  return menuMessage(
-    `⭐ 선호 영웅 ${codes.length}개 저장됐어요!\n계속 추가하거나 **완료**를 눌러주세요.`,
-  );
-}
 
-async function saveMaps(
-  sb: Sb,
-  channelId: string,
-  discordUserId: string,
-  sub: Submitted,
-): Promise<object> {
-  const memberId = await resolveMemberId(sb, discordUserId);
-  if (!memberId) return ephemeral("먼저 `/등록`으로 기본 정보를 입력해주세요.");
-
-  const codes: string[] = [];
-  for (const [key, v] of Object.entries(sub)) {
-    if (key.startsWith("map_") && v.values) codes.push(...v.values);
+  // 포지션 — 해당 컬럼만 갱신 (다른 값 보존)
+  if (cid === "reg:primary" || cid === "reg:secondary") {
+    const field = cid === "reg:primary" ? "primary_role" : "secondary_role";
+    const role = asRole(values[0]);
+    await sb
+      .from("channel_members")
+      .update({ [field]: role })
+      .match({ channel_id: channelId, member_id: memberId });
+    const p = await loadProfile(sb, channelId, memberId);
+    if (!p) return ephemeral("프로필을 불러오지 못했어요.");
+    return profileResponse(CallbackType.UPDATE_MESSAGE, p);
   }
-  const r = await replaceMapPrefs(sb, channelId, memberId, codes);
-  if (!r.ok) return ephemeral(`저장 실패: ${r.error}`);
-  return menuMessage(
-    `🗺️ 선호 맵 ${codes.length}개 저장됐어요!\n계속 추가하거나 **완료**를 눌러주세요.`,
-  );
+
+  // 티어 — 주 포지션 기준으로 저장 (디비전은 기존값 또는 기본값)
+  if (cid === "reg:tier") {
+    const p = await loadProfile(sb, channelId, memberId);
+    if (!p) return ephemeral("프로필을 불러오지 못했어요.");
+    if (!p.primaryRole) {
+      return profileResponse(
+        CallbackType.UPDATE_MESSAGE,
+        p,
+        "⚠️ 티어는 주 포지션 기준이라, 주 포지션을 먼저 선택해주세요.",
+      );
+    }
+    const tier = asTier(values[0]);
+    if (tier) {
+      const rr = await upsertRoleRating(
+        sb,
+        channelId,
+        memberId,
+        p.primaryRole,
+        tier,
+        p.division ?? DEFAULT_DIVISION,
+      );
+      if (!rr.ok) return ephemeral(`저장 실패: ${rr.error}`);
+      p.tier = tier;
+    }
+    return profileResponse(CallbackType.UPDATE_MESSAGE, p);
+  }
+
+  if (cid === "reg:open_heroes" || cid === "reg:open_maps") {
+    const [ref, p] = await Promise.all([
+      getRefData(),
+      loadProfile(sb, channelId, memberId),
+    ]);
+    if (!p) return ephemeral("프로필을 불러오지 못했어요.");
+    return cid === "reg:open_heroes"
+      ? heroResponse(CallbackType.CHANNEL_MESSAGE_WITH_SOURCE, p, ref)
+      : mapResponse(CallbackType.CHANNEL_MESSAGE_WITH_SOURCE, p, ref);
+  }
+
+  if (cid.startsWith("reg:hero_")) {
+    const role = asRole(cid.slice("reg:hero_".length));
+    const [ref, p] = await Promise.all([
+      getRefData(),
+      loadProfile(sb, channelId, memberId),
+    ]);
+    if (!p || !role) return ephemeral("프로필을 불러오지 못했어요.");
+    // 이 역할의 기존 선택을 빼고 새 선택으로 교체 (다른 역할 영웅은 보존)
+    const kept = p.heroCodes.filter((c) => ref.heroByCode[c]?.role !== role);
+    const next = [...kept, ...values];
+    if (next.length > MAX_HEROES) {
+      return heroResponse(
+        CallbackType.UPDATE_MESSAGE,
+        p,
+        ref,
+        `⚠️ 전체 합쳐 최대 ${MAX_HEROES}개예요 (지금 ${next.length}개). 저장 안 됨.`,
+      );
+    }
+    const r = await replaceHeroPrefs(sb, channelId, memberId, next);
+    if (!r.ok) return ephemeral(`저장 실패: ${r.error}`);
+    p.heroCodes = next;
+    return heroResponse(CallbackType.UPDATE_MESSAGE, p, ref);
+  }
+
+  if (cid.startsWith("reg:map_")) {
+    const n = Number(cid.slice("reg:map_".length));
+    const [ref, p] = await Promise.all([
+      getRefData(),
+      loadProfile(sb, channelId, memberId),
+    ]);
+    if (!p || !Number.isInteger(n)) {
+      return ephemeral("프로필을 불러오지 못했어요.");
+    }
+    const chunkCodes = (mapChunks(ref)[n] ?? []).map((m) => m.code);
+    const kept = p.mapCodes.filter((c) => !chunkCodes.includes(c));
+    const next = [...kept, ...values];
+    const r = await replaceMapPrefs(sb, channelId, memberId, next);
+    if (!r.ok) return ephemeral(`저장 실패: ${r.error}`);
+    p.mapCodes = next;
+    return mapResponse(CallbackType.UPDATE_MESSAGE, p, ref);
+  }
+
+  return ephemeral("알 수 없는 동작이에요.");
 }
 
 // ── 값 변환 가드 ───────────────────────────────────────────────────────────
@@ -585,8 +629,4 @@ function asRole(v: string | undefined): Role | null {
 }
 function asTier(v: string | undefined): Tier | null {
   return v && (TIER_ORDER as string[]).includes(v) ? (v as Tier) : null;
-}
-function asDivision(v: string | undefined): Division | null {
-  const n = Number(v);
-  return n >= 1 && n <= 5 ? (n as Division) : null;
 }
