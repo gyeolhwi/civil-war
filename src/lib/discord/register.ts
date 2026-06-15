@@ -243,6 +243,14 @@ function button(style: number, label: string, emoji: string, customId: string) {
   };
 }
 
+/** 하위 화면(티어/영웅/맵)에서 메인 프로필로 돌아가는 버튼 행. */
+function backRow() {
+  return {
+    type: ComponentType.ACTION_ROW,
+    components: [button(ButtonStyle.SECONDARY, "뒤로", "↩️", "reg:back")],
+  };
+}
+
 function roleOptions(selected: Role | null): Option[] {
   return ROLES.map((r) => ({
     label: ROLE_PICK_LABEL[r],
@@ -352,7 +360,7 @@ function tierResponse(callbackType: number, p: Profile, note?: string) {
       data: {
         content: "먼저 주/부 포지션을 선택해주세요. (메인 화면 드롭다운)",
         flags: EPHEMERAL,
-        components: [],
+        components: [backRow()],
       },
     };
   }
@@ -380,7 +388,7 @@ function tierResponse(callbackType: number, p: Profile, note?: string) {
     data: {
       content: `🏅 포지션별 티어·등급 — ${tierText(p)}${note ? `\n${note}` : ""}`,
       flags: EPHEMERAL,
-      components: rows,
+      components: [...rows, backRow()],
     },
   };
 }
@@ -414,7 +422,7 @@ function heroResponse(
     data: {
       content: `⭐ 선호 영웅 — 포지션과 무관하게 **전부 합쳐 최대 ${MAX_HEROES}개**만 저장돼요. (현재 ${p.heroCodes.length}/${MAX_HEROES})\n역할별 드롭다운에서 고르면 합산됩니다.${note ? `\n${note}` : ""}`,
       flags: EPHEMERAL,
-      components: rows,
+      components: [...rows, backRow()],
     },
   };
 }
@@ -451,7 +459,7 @@ function mapResponse(callbackType: number, p: Profile, ref: RefData) {
     data: {
       content: `🗺️ 선호 맵 — 현재 ${p.mapCodes.length}개`,
       flags: EPHEMERAL,
-      components: rows,
+      components: [...rows, backRow()],
     },
   };
 }
@@ -614,11 +622,18 @@ async function handleComponent(
     return profileResponse(CallbackType.UPDATE_MESSAGE, p);
   }
 
-  // 티어 화면 열기
+  // 뒤로 → 메인 프로필 화면 (같은 메시지 갱신)
+  if (cid === "reg:back") {
+    const p = await loadProfile(sb, channelId, memberId);
+    if (!p) return ephemeral("프로필을 불러오지 못했어요.");
+    return profileResponse(CallbackType.UPDATE_MESSAGE, p);
+  }
+
+  // 티어 화면 열기 (같은 메시지 전환)
   if (cid === "reg:open_tier") {
     const p = await loadProfile(sb, channelId, memberId);
     if (!p) return ephemeral("프로필을 불러오지 못했어요.");
-    return tierResponse(CallbackType.CHANNEL_MESSAGE_WITH_SOURCE, p);
+    return tierResponse(CallbackType.UPDATE_MESSAGE, p);
   }
 
   // 포지션별 티어 — 등급(디비전)은 기존값 또는 기본값
@@ -677,8 +692,8 @@ async function handleComponent(
     ]);
     if (!p) return ephemeral("프로필을 불러오지 못했어요.");
     return cid === "reg:open_heroes"
-      ? heroResponse(CallbackType.CHANNEL_MESSAGE_WITH_SOURCE, p, ref)
-      : mapResponse(CallbackType.CHANNEL_MESSAGE_WITH_SOURCE, p, ref);
+      ? heroResponse(CallbackType.UPDATE_MESSAGE, p, ref)
+      : mapResponse(CallbackType.UPDATE_MESSAGE, p, ref);
   }
 
   if (cid.startsWith("reg:hero_")) {
