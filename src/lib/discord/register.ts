@@ -246,7 +246,11 @@ function divisionOptions(selected: Division | null): Option[] {
   }));
 }
 
-/** 기본정보 모달 (배틀태그 + 포지션 + 티어). */
+/**
+ * 기본정보 모달 — 배틀태그(텍스트)만. 클래식 구조(ActionRow + TextInput).
+ * 모달 안 셀렉트(Label, 2025 신기능)는 일부 클라이언트에서 거부돼 "응답 없음"이
+ * 나므로 쓰지 않는다. 포지션·티어 등 선택값은 제출 후 메시지 셀렉트로 받는다.
+ */
 function basicModal(existing: ExistingProfile | null) {
   return {
     type: CallbackType.MODAL,
@@ -255,55 +259,21 @@ function basicModal(existing: ExistingProfile | null) {
       title: "내전 멤버 등록",
       components: [
         {
-          type: ComponentType.LABEL,
-          label: "배틀태그 (예: 홍길동#1234)",
-          component: {
-            type: ComponentType.TEXT_INPUT,
-            custom_id: "battle_tag",
-            style: TextInputStyle.SHORT,
-            required: true,
-            min_length: 3,
-            max_length: 30,
-            value: existing?.battleTag ?? "",
-            placeholder: "이름#숫자",
-          },
+          type: ComponentType.ACTION_ROW,
+          components: [
+            {
+              type: ComponentType.TEXT_INPUT,
+              custom_id: "battle_tag",
+              label: "배틀태그 (예: 홍길동#1234)",
+              style: TextInputStyle.SHORT,
+              required: true,
+              min_length: 3,
+              max_length: 30,
+              value: existing?.battleTag ?? "",
+              placeholder: "이름#숫자",
+            },
+          ],
         },
-        selectLabel(
-          "주 포지션",
-          "primary_role",
-          roleOptions(existing?.primaryRole ?? null),
-          {
-            min: 1,
-            max: 1,
-            placeholder: "주 포지션",
-          },
-        ),
-        selectLabel(
-          "부 포지션 (선택)",
-          "secondary_role",
-          roleOptions(existing?.secondaryRole ?? null),
-          { min: 0, max: 1, placeholder: "부 포지션" },
-        ),
-        selectLabel(
-          "티어 (주 포지션 기준, 선택)",
-          "tier",
-          tierOptions(existing?.tier ?? null),
-          {
-            min: 0,
-            max: 1,
-            placeholder: "티어",
-          },
-        ),
-        selectLabel(
-          "디비전 (선택)",
-          "division",
-          divisionOptions(existing?.division ?? null),
-          {
-            min: 0,
-            max: 1,
-            placeholder: "디비전 (5=하위 ~ 1=상위)",
-          },
-        ),
       ],
     },
   };
