@@ -51,8 +51,12 @@ export async function loadPresetMembers(
       preset.discord_message_id as string,
       "✅",
     );
-  } catch {
-    return { ok: false, error: "디스코드 반응을 불러오지 못했습니다" };
+  } catch (e) {
+    return {
+      ok: false,
+      error:
+        e instanceof Error ? e.message : "디스코드 반응을 불러오지 못했습니다",
+    };
   }
   // 봇이 시드로 단 ✅ 는 제외 (봇 user id = application id).
   const botId = process.env.DISCORD_APPLICATION_ID;

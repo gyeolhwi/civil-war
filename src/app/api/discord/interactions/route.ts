@@ -132,7 +132,7 @@ async function handleNaejeon(interaction: DiscordInteraction) {
     return NextResponse.json({
       type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: `공지 게시 실패: ${e instanceof Error ? e.message : String(e)}`,
+        content: `⚠️ ${e instanceof Error ? e.message : "알 수 없는 오류가 발생했어요."}`,
         flags: EPHEMERAL,
       },
     });
