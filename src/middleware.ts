@@ -1,7 +1,19 @@
-import type { NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
+  // admin.<도메인> 서브도메인은 관제 콘솔(/admin)로 보낸다.
+  // 인증·쿠키는 기본 도메인에서 처리되므로 리다이렉트로 단순화한다.
+  // (URL 을 admin.<도메인> 으로 유지하려면 쿠키 도메인(.<도메인>) 설정이 필요 — 추후)
+  const host = request.headers.get("host") ?? "";
+  if (host.startsWith("admin.")) {
+    const url = request.nextUrl.clone();
+    url.host = host.replace(/^admin\./, "");
+    if (!url.pathname.startsWith("/admin")) {
+      url.pathname = `/admin${url.pathname === "/" ? "" : url.pathname}`;
+    }
+    return NextResponse.redirect(url);
+  }
   return updateSession(request);
 }
 

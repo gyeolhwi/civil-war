@@ -27,5 +27,12 @@ export async function login(formData: FormData) {
     redirect(`/login?error=${code}`);
   }
 
+  // 2단계 인증이 등록된 계정(슈퍼관리자)이면 비번 통과 후 코드 입력 단계로.
+  const { data: aal } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.currentLevel === "aal1" && aal.nextLevel === "aal2") {
+    redirect("/app/mfa");
+  }
+
   redirect("/app");
 }
