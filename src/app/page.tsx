@@ -40,32 +40,6 @@ export default function Home() {
           </p>
         </div>
       </main>
-      <footer className="px-6 py-6 text-center text-xs text-ink-subtle">
-        © 2026 Civil War{" · "}
-        <a
-          href="https://github.com/gyeolhwi"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline-offset-4 transition-colors hover:text-ink-muted hover:underline"
-        >
-          GitHub
-        </a>
-        {" · "}Discord: gyeorrr
-        <br />
-        <Link
-          href="/terms"
-          className="underline-offset-4 transition-colors hover:text-ink-muted hover:underline"
-        >
-          이용약관
-        </Link>
-        {" · "}
-        <Link
-          href="/privacy"
-          className="underline-offset-4 transition-colors hover:text-ink-muted hover:underline"
-        >
-          개인정보처리방침
-        </Link>
-      </footer>
     </>
   );
 }

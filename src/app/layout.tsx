@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import { RefDataProvider } from "@/components/ref-data-provider";
+import { SiteFooter } from "@/components/site-footer";
 import { Toaster } from "@/components/ui/sonner";
 import { getRefData } from "@/lib/ref-data";
 import "./globals.css";
@@ -41,7 +42,10 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <NextTopLoader color="#5e6ad2" height={3} showSpinner={false} />
-        <RefDataProvider value={refData}>{children}</RefDataProvider>
+        <RefDataProvider value={refData}>
+          <div className="flex flex-1 flex-col">{children}</div>
+        </RefDataProvider>
+        <SiteFooter />
         <Toaster theme="dark" />
       </body>
     </html>
