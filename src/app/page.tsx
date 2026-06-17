@@ -51,6 +51,20 @@ export default function Home() {
           GitHub
         </a>
         {" · "}Discord: gyeorrr
+        <br />
+        <Link
+          href="/terms"
+          className="underline-offset-4 transition-colors hover:text-ink-muted hover:underline"
+        >
+          이용약관
+        </Link>
+        {" · "}
+        <Link
+          href="/privacy"
+          className="underline-offset-4 transition-colors hover:text-ink-muted hover:underline"
+        >
+          개인정보처리방침
+        </Link>
       </footer>
     </>
   );
