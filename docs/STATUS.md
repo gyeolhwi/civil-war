@@ -14,7 +14,7 @@
 
 ### 지금 상태
 - **`main` 배포** (`613a600`). 디스코드 봇 `/내전`(공지 임베드 + ✅ 자동첨부)까지 프로덕션 실작동 확인.
-- Discord 셋업 완료: 봇(`내전-모이라봇`) 서버(벙커) 초대, 인터랙션 엔드포인트 등록, env(`DISCORD_PUBLIC_KEY`/`DISCORD_BOT_TOKEN`) Vercel 반영, Vercel 배포 보호 OFF.
+- Discord 셋업 완료: 봇(`모이라`) 서버(벙커) 초대, 인터랙션 엔드포인트 등록, env(`DISCORD_PUBLIC_KEY`/`DISCORD_BOT_TOKEN`) Vercel 반영, Vercel 배포 보호 OFF.
 - 검증: tsc clean · 빌드 ✅ · `/내전` 실사용 동작.
 
 ### 다음 작업 후보 → 토의: [`discussion/discord-bot-and-presentation.md`](discussion/discord-bot-and-presentation.md) · 셋업: [`ops/discord-bot-setup.md`](ops/discord-bot-setup.md)
