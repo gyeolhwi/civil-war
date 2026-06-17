@@ -45,6 +45,11 @@ const SUPER_MENUS = [
     desc: "영웅 분류·맵풀 편집, CSV 내보내기 (슈퍼관리자)",
   },
   {
+    href: "/app/patch-notes",
+    title: "패치노트",
+    desc: "패치노트 작성·게시 → /patch·디스코드 /패치노트 반영 (슈퍼관리자)",
+  },
+  {
     href: "/app/security",
     title: "2단계 인증",
     desc: "관제 콘솔 접근용 2FA 설정 (슈퍼관리자)",

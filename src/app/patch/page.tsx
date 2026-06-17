@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { getAllPatchPosts } from "@/lib/patch-notes/load";
+import { createClient } from "@/lib/supabase/server";
 
-// 패치노트 공개 게시판 (로그인 없이 열람). 글은 content/patch-notes/*.md.
-// 파일 시스템을 읽으므로 정적 생성하지 않고 요청 시 렌더.
+// 패치노트 공개 게시판 (로그인 없이 열람). 글은 patch_posts 테이블(공개 read RLS).
 export const dynamic = "force-dynamic";
 
 export const metadata = {
@@ -10,7 +9,14 @@ export const metadata = {
   description: "오버워치 공식 패치 소식 + 내전 웹·봇 업데이트",
 };
 
-/** `**굵게**` 와 `[라벨](url)` 만 가볍게 렌더. (관리자 작성 마크다운 신뢰) */
+interface Post {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+}
+
+/** `**굵게**` 와 `[라벨](url)` 만 가볍게 렌더. (관리자 작성 본문 신뢰) */
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   const re = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)|\*\*([^*]+)\*\*/g;
@@ -41,8 +47,14 @@ function renderInline(text: string): ReactNode[] {
   return nodes;
 }
 
-export default function PatchBoardPage() {
-  const posts = getAllPatchPosts();
+export default async function PatchBoardPage() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("patch_posts")
+    .select("id, title, body, created_at")
+    .eq("published", true)
+    .order("created_at", { ascending: false });
+  const posts = (data ?? []) as Post[];
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
@@ -56,38 +68,20 @@ export default function PatchBoardPage() {
           아직 등록된 패치노트가 없어요.
         </p>
       ) : (
-        <div className="mt-8 space-y-8">
+        <div className="mt-8 space-y-6">
           {posts.map((post) => (
             <article
-              key={post.slug}
+              key={post.id}
               className="rounded-xl border border-border bg-card p-5"
             >
               <header className="mb-3">
                 <h2 className="text-lg font-semibold">{post.title}</h2>
                 <time className="text-xs text-muted-foreground">
-                  {post.date}
+                  {post.created_at.slice(0, 10)}
                 </time>
               </header>
-
-              <div className="space-y-4">
-                {post.sections.map((s) => (
-                  <section key={s.heading}>
-                    <h3 className="font-medium">{s.heading}</h3>
-                    <ul className="mt-1 space-y-1 text-sm">
-                      {s.bullets.map((b) => (
-                        <li key={b} className="flex gap-2">
-                          <span className="text-muted-foreground">•</span>
-                          <span>{renderInline(b)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    {s.note && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {renderInline(s.note)}
-                      </p>
-                    )}
-                  </section>
-                ))}
+              <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                {renderInline(post.body)}
               </div>
             </article>
           ))}

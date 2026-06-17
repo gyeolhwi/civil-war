@@ -180,7 +180,7 @@ export async function POST(request: Request) {
       return NextResponse.json(await handleRegister(interaction));
     }
     if (interaction.data?.name === "패치노트") {
-      return NextResponse.json(handlePatchNotes());
+      return NextResponse.json(await handlePatchNotes());
     }
     return NextResponse.json({
       type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
