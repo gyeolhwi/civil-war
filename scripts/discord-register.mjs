@@ -35,6 +35,10 @@ const commands = [
     name: "내전-프로필",
     description: "오버워치 내전 프로필 등록/수정 (배틀태그·포지션·티어·선호 영웅·맵)",
   },
+  {
+    name: "패치노트",
+    description: "오버워치 신규 소식·내전 봇 업데이트를 확인합니다",
+  },
 ];
 
 const headers = {
