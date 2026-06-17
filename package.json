@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "test": "vitest"
+    "test": "vitest",
+    "patch:fetch": "node --env-file=.env.local scripts/patch-fetch.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -35,6 +36,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.104.2",
     "@biomejs/biome": "^2.4.16",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",

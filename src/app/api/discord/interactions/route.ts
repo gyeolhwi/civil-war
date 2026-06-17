@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { handlePatchNotes } from "@/lib/discord/patch-notes";
 import { handleRegister, resolveChannelId } from "@/lib/discord/register";
 import { addReaction, postChannelMessage } from "@/lib/discord/rest";
 import { verifyDiscordRequest } from "@/lib/discord/verify";
@@ -177,6 +178,9 @@ export async function POST(request: Request) {
     }
     if (interaction.data?.name === "내전-프로필") {
       return NextResponse.json(await handleRegister(interaction));
+    }
+    if (interaction.data?.name === "패치노트") {
+      return NextResponse.json(handlePatchNotes());
     }
     return NextResponse.json({
       type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
