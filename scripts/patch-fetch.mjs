@@ -216,6 +216,6 @@ const draft = [
 ].join("\n");
 
 console.error(
-  `\n────────── 아래를 PATCH_NOTES 배열 맨 위에 붙여넣으세요 (출처 ${sourceKind} 기준, 검토 필수) ──────────\n`,
+  `\n────────── 아래를 OVERWATCH_NEWS 배열 맨 위에 붙여넣으세요 (출처 ${sourceKind} 기준, 검토 필수) ──────────\n`,
 );
 console.log(draft);
