@@ -3,7 +3,7 @@
 > 세션 이어가기 진입점. **여기를 먼저 읽고** 다음 작업을 결정한다.
 > 작업을 끝낼 때마다 이 파일의 "다음 할 일"과 "완료" 섹션을 갱신할 것.
 
-마지막 갱신: 2026-06-07
+마지막 갱신: 2026-06-17
 
 > **현재 한 줄 요약:** 핵심 기능 + 영웅/맵 DB 이관 + 관리 UI에 더해 **디스코드 봇 `/내전`(공지+✅)까지 `main` 배포·실작동 확인.**
 > 봇은 서버리스(HTTP 인터랙션 + REST) 방식. 다음은 **`/참가자`**(✅ 누른 사람 조회). 셋업 가이드 = [`ops/discord-bot-setup.md`](ops/discord-bot-setup.md).
@@ -116,6 +116,14 @@
 - **봇 권한(최소)**: 채널보기·메시지보내기·링크임베드·반응추가·메시지기록보기 + (음성)멤버이동. scope `bot`+`applications.commands`. Privileged Intents 전부 OFF.
 - **겪은 함정(가이드에 기록)**: ① Vercel 배포 보호(SSO) → Discord 검증 차단(끔). ② 이름 비슷한 남의 `civil-war.vercel.app`. ③ **env 추가 후 새 배포 안 하면 런타임 미반영**(`DISCORD_BOT_TOKEN` 못 읽음) → git push로 해결.
 - **푸터 제작자 표기**(`96ab275`): 랜딩 푸터에 GitHub(gyeolhwi) 링크 + Discord 핸들, 메타데이터 author/creator를 gyeolhwi로.
+
+### `/패치노트` 커맨드 + 신규 콘텐츠(시온·네온 정션) + 봇명 모이라 (2026-06-17, main 머지)
+
+- **신규 영웅·맵**: 시온(dps · comp `dive` · func `flanker`) + 네온 정션(hybrid). 마이그레이션 `0006_add_shion_neon_junction.sql`(0003 마스터에 1건씩 append, 각 그룹 맨 뒤 sort_order) + 이미지 `heroes/shion.png`·`maps/neon_junction.jpg`. **이제 51→52영웅·31→32맵.** 코드는 전부 DB(`ref-data`) 기반이라 마이그레이션 적용·이미지 배치만으로 멤버폼·밸런싱·맵선정·관리 UI에 자동 반영(테스트 32/32 통과 확인). ⚠️ **Supabase에서 0006 SQL 실행 필요**(미적용 시 미노출, ref-data 캐시 ~1h).
+- **`/패치노트` 커맨드**(`src/lib/discord/patch-notes.ts`, `route.ts`): 최근 신규 소식·봇 업데이트를 ephemeral 임베드로 안내(출처 표기). `PATCH_NOTES` 수동 큐레이션 데이터 + `source` 필드.
+- **보조 자동수집**(`scripts/patch-fetch.mjs`, `pnpm patch:fetch`): 나무늘보 패치노트 재생목록 최신 영상 → 자막(실패 시 설명란) → Claude(`claude-opus-4-8`) 핵심 요약 초안 → 운영자가 검토 후 `PATCH_NOTES`에 붙여넣는 사람-게이트 방식. env `ANTHROPIC_API_KEY`·`YOUTUBE_API_KEY` 필요(`@anthropic-ai/sdk` devDep).
+- **봇 이름 변경**: `내전-모이라봇` → **`모이라`**. 봇 프로필 Description은 개발자 포털에서 직접 설정(코드 무관).
+- ⚠️ **배포 후**: ① Supabase에서 `0006` 실행 ② `node --env-file=.env.local scripts/discord-register.mjs`로 `/패치노트` 글로벌 등록(반영 ~1h).
 
 ## 🔶 진행 중 / 막힌 곳
 

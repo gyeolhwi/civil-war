@@ -2,6 +2,8 @@
 
 경로 규약: 영웅 `public/images/heroes/<code>.png`, 맵 `public/images/maps/<code>.jpg`
 
+> ⚠️ 이 목록은 수동 기록이라 실제 DB(`heroes`/`maps`)·`public/images/`와 어긋날 수 있다. **권위 있는 출처는 DB 시드(`supabase/migrations/`)**다. 아래 헤더 개수는 작성 당시 값이며 현재와 다를 수 있음.
+
 ## 영웅 (48개) — public/images/heroes/
 
 | 파일명 | 영웅 |
@@ -54,6 +56,7 @@
 | `jetpack_cat.png` | 제트팩 캣 |
 | `zenyatta.png` | 젠야타 |
 | `illari.png` | 일리아리 |
+| `shion.png` | 시온 (2026-06-17 추가, 0006) |
 
 ## 맵 (27개) — public/images/maps/
 
@@ -86,5 +89,6 @@
 | `suravasa.jpg` | 수라바사 |
 | `hanaoka.jpg` | 하나오카 |
 | `throne_of_anubis.jpg` | 아누비스 왕좌 |
+| `neon_junction.jpg` | 네온 정션 (2026-06-17 추가, 0006) |
 
 > 확장자는 `.png` 기준(상수의 image 경로). png로 넣으려면 알려주세요 — 규약 바꿔드림.
