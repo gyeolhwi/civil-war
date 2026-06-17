@@ -19,21 +19,26 @@ export interface PatchNote {
   source?: { label: string; url: string };
 }
 
+// 오버워치 공식 패치 소식의 출처는 "Blizzard 공식 패치노트 + 나무늘보 재생목록" 두 곳만 사용한다.
 /** 나무늘보 오버워치 패치노트 재생목록 — 출처 표기·자동 수집의 기준. */
 export const SOURCE_PLAYLIST_URL =
   "https://www.youtube.com/playlist?list=PLXWszO2dzkY37yutFFZDzT18segiVb0M2";
+/** Blizzard 공식 패치노트. */
+export const BLIZZARD_PATCH_URL =
+  "https://overwatch.blizzard.com/ko-kr/news/patch-notes/";
 
 /**
- * 🎮 오버워치 공식 패치 소식 (최신순). 출처: 나무늘보.
+ * 🎮 오버워치 공식 패치 소식 (최신순). 출처: Blizzard 공식 + 나무늘보만.
  * `pnpm patch:fetch` 초안을 이 배열 맨 위에 붙여넣어 갱신한다.
  */
 export const OVERWATCH_NEWS: PatchNote[] = [
   {
-    date: "2026 시즌 2",
-    title: "신규 영웅 · 스토리",
+    date: "2026 시즌 3 · 6/17",
+    title: "호랑이 굴 속으로 — 신규 영웅 시온",
     items: [
-      "🦸 신규 공격 영웅 **시에라(Sierra)** 합류",
-      "📖 단편 '벤처의 모험: 심해의 기만' 공개 (라이프위버·벤처·도미나)",
+      "🦹 52번째 신규 영웅 **시온(Shion)** — 하시모토 가문 옴닉, 쌍권총 딜러(오토바이 탑승·투척)",
+      "🗺️ 일본 배경 신규 맵 추가 (시온 스토리 연계)",
+      "🐯 시즌 3 '호랑이 굴 속으로' 시작",
     ],
     source: { label: "나무늘보 패치노트", url: SOURCE_PLAYLIST_URL },
   },
@@ -45,10 +50,9 @@ export const OVERWATCH_NEWS: PatchNote[] = [
 export const APP_UPDATES: PatchNote[] = [
   {
     date: "2026-06-17",
-    title: "신규 콘텐츠 + 패치노트 커맨드",
+    title: "신규 콘텐츠 반영 + 패치노트 커맨드",
     items: [
-      "🦹 신규 영웅 **시온(Shion)** — 암살형 서브딜러",
-      "🗺️ 신규 맵 **네온 정션(Neon Junction)**",
+      "🦹 신규 영웅 **시온** · 🗺️ 신규 맵 **네온 정션** 을 내전 웹에 추가 (프로필·밸런싱에서 선택 가능)",
       "📰 `/패치노트` 커맨드 추가 (지금 보고 있는 이것!)",
     ],
   },
@@ -84,7 +88,7 @@ export function handlePatchNotes() {
           title: "🎮 오버워치 공식 패치 소식",
           color: OVERWATCH_COLOR,
           fields: toFields(OVERWATCH_NEWS),
-          footer: { text: "출처: 나무늘보 패치노트 재생목록" },
+          footer: { text: "출처: Blizzard 공식 패치노트 · 나무늘보 재생목록" },
         },
         {
           title: "🛠️ 내전 웹·봇 업데이트",
