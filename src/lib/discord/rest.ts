@@ -121,15 +121,24 @@ export async function getReactionUsers(
   channelId: string,
   messageId: string,
   emoji: string,
-): Promise<{ id: string; username?: string; global_name?: string | null }[]> {
+): Promise<
+  {
+    id: string;
+    username?: string;
+    global_name?: string | null;
+    bot?: boolean;
+  }[]
+> {
   const res = await fetch(
     `${API_BASE}/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}?limit=100`,
     { headers: botHeaders() },
   );
   if (!res.ok) throw await discordError(res, "read");
+  // Discord user 객체는 봇이면 bot:true 를 포함한다 — 봇 반응 제외에 사용.
   return (await res.json()) as {
     id: string;
     username?: string;
     global_name?: string | null;
+    bot?: boolean;
   }[];
 }

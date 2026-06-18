@@ -44,6 +44,7 @@ export async function loadPresetMembers(
     id: string;
     username?: string;
     global_name?: string | null;
+    bot?: boolean;
   }[];
   try {
     reactors = await getReactionUsers(
@@ -58,9 +59,10 @@ export async function loadPresetMembers(
         e instanceof Error ? e.message : "디스코드 반응을 불러오지 못했습니다",
     };
   }
-  // 봇이 시드로 단 ✅ 는 제외 (봇 user id = application id).
+  // 봇이 시드로 단 ✅ 는 제외. 1차: 디스코드 user 객체의 bot 플래그(가장 확실,
+  // env 불필요). 2차: application id 일치(런타임에 env 있으면 보강).
   const botId = process.env.DISCORD_APPLICATION_ID;
-  const realReactors = reactors.filter((r) => r.id !== botId);
+  const realReactors = reactors.filter((r) => !r.bot && r.id !== botId);
   if (realReactors.length === 0) {
     return {
       ok: true,
