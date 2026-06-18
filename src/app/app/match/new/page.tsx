@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { RulesModal } from "@/components/rules-modal";
 import { getMyChannel } from "@/lib/channel";
 import { loadParticipants } from "@/lib/participants";
 import { loadPresets } from "@/lib/presets";
@@ -41,19 +40,17 @@ export default async function NewMatchPage() {
   }
 
   return (
-    <Shell action={<RulesModal body={rulesBody} />}>
-      <MatchWizard participants={participants} presets={presets} />
+    <Shell>
+      <MatchWizard
+        participants={participants}
+        presets={presets}
+        rulesBody={rulesBody}
+      />
     </Shell>
   );
 }
 
-function Shell({
-  children,
-  action,
-}: {
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
+function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
       <header className="mb-8 flex flex-col gap-1">
@@ -63,12 +60,9 @@ function Shell({
         >
           ← 대시보드
         </Link>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            내전 시작
-          </h1>
-          {action}
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          내전 시작
+        </h1>
       </header>
       {children}
     </main>

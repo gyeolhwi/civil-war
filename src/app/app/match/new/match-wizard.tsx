@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { HeroMultiSelect } from "@/components/hero-multi-select";
 import { useRefData } from "@/components/ref-data-provider";
+import { RulesModal } from "@/components/rules-modal";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -181,9 +182,11 @@ function toBanTeam(t: BuiltTeam, byId: Map<string, Participant>): BanTeam {
 export function MatchWizard({
   participants,
   presets,
+  rulesBody,
 }: {
   participants: Participant[];
   presets: MatchPreset[];
+  rulesBody: string;
 }) {
   const router = useRouter();
   const { heroByCode, mapByCode, heroes, maps } = useRefData();
@@ -1038,6 +1041,7 @@ export function MatchWizard({
           점수차 <AnimatedNumber value={candidate.diff} />
         </p>
         <div className="flex flex-wrap justify-end gap-2">
+          <RulesModal body={rulesBody} />
           <Button variant="secondary" onClick={copyShare}>
             디스코드 복사
           </Button>
