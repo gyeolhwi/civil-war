@@ -31,23 +31,34 @@ function inline(text: string): ReactNode[] {
   return nodes;
 }
 
-/** 규칙 마크다운(제목/##섹션/불릿/인용)을 가볍게 렌더. */
-export function RulesContent({ body }: { body: string }) {
+/** 규칙 마크다운(제목/##섹션/불릿/인용)을 가볍게 렌더. large=라이브 공유용 큰 글씨. */
+export function RulesContent({
+  body,
+  large = false,
+}: {
+  body: string;
+  large?: boolean;
+}) {
+  const rootCls = large
+    ? "space-y-2 text-base leading-relaxed sm:text-lg"
+    : "space-y-1 text-sm leading-relaxed";
+  const h2Cls = large ? "text-2xl font-bold" : "text-lg font-bold";
+  const h3Cls = large ? "mt-4 text-lg font-semibold" : "mt-3 font-semibold";
   return (
-    <div className="space-y-1 text-sm leading-relaxed">
+    <div className={rootCls}>
       {body.split("\n").map((raw, i) => {
         const t = raw.trim();
         const key = `${i}-${t.slice(0, 16)}`;
         if (!t) return <div key={key} className="h-1.5" />;
         if (t.startsWith("# "))
           return (
-            <h2 key={key} className="text-lg font-bold">
+            <h2 key={key} className={h2Cls}>
               {inline(t.slice(2))}
             </h2>
           );
         if (t.startsWith("## "))
           return (
-            <h3 key={key} className="mt-3 font-semibold">
+            <h3 key={key} className={h3Cls}>
               {inline(t.slice(3))}
             </h3>
           );

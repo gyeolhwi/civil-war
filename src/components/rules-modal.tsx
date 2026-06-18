@@ -31,11 +31,11 @@ export function RulesModal({
           </Button>
         }
       />
-      <DialogContent className="max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto p-6 sm:max-w-3xl sm:p-8">
         <DialogHeader>
-          <DialogTitle>내전 규칙</DialogTitle>
+          <DialogTitle className="text-2xl">📜 내전 규칙</DialogTitle>
         </DialogHeader>
-        <RulesContent body={rulesSubset(body)} />
+        <RulesContent body={rulesSubset(body)} large />
       </DialogContent>
     </Dialog>
   );
