@@ -40,7 +40,7 @@ export function ChannelDetailClient({
         ) : (
           <ul className="flex flex-col gap-2">
             {channel.members.map((m) => (
-              <MemberRow key={m.id} member={m} />
+              <MemberRow key={m.id} member={m} channelId={channel.id} />
             ))}
           </ul>
         )}
@@ -140,7 +140,13 @@ function Field({
   );
 }
 
-function MemberRow({ member }: { member: ChannelMemberRow }) {
+function MemberRow({
+  member,
+  channelId,
+}: {
+  member: ChannelMemberRow;
+  channelId: string;
+}) {
   const [pending, startTransition] = useTransition();
   const [discordId, setDiscordId] = useState(member.discordUserId ?? "");
 
@@ -149,6 +155,7 @@ function MemberRow({ member }: { member: ChannelMemberRow }) {
   function onSave() {
     startTransition(async () => {
       const res = await setMemberDiscordId({
+        channelId,
         memberId: member.id,
         discordUserId: discordId.trim(),
       });

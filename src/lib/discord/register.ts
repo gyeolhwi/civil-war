@@ -163,16 +163,21 @@ export async function resolveChannelId(
 async function resolveMemberId(
   sb: Sb,
   discordUserId: string,
+  channelId: string,
 ): Promise<string | null> {
-  const cached = memberIdCache.get(discordUserId);
+  // 디스코드 ID는 채널마다 다른 멤버에 연결될 수 있으므로 "이 채널 소속" 멤버만 찾는다.
+  const key = `${channelId}:${discordUserId}`;
+  const cached = memberIdCache.get(key);
   if (cached) return cached;
   const { data } = await sb
-    .from("members")
-    .select("id")
-    .eq("discord_user_id", discordUserId)
-    .maybeSingle();
-  if (data?.id) memberIdCache.set(discordUserId, data.id as string);
-  return data?.id ?? null;
+    .from("channel_members")
+    .select("member_id, members!inner(discord_user_id)")
+    .eq("channel_id", channelId)
+    .eq("members.discord_user_id", discordUserId)
+    .limit(1);
+  const id = (data?.[0]?.member_id as string | undefined) ?? null;
+  if (id) memberIdCache.set(key, id);
+  return id;
 }
 
 type RoleRating = { tier: Tier; division: Division };
@@ -583,15 +588,13 @@ async function handleRegisterInner(interaction: Interaction): Promise<object> {
     return ephemeral("디스코드 사용자 정보를 찾을 수 없어요.");
 
   const sb = createAdminClient();
-  const [channelId, memberId] = await Promise.all([
-    resolveChannelId(sb, interaction.guild_id),
-    resolveMemberId(sb, discordUserId),
-  ]);
+  const channelId = await resolveChannelId(sb, interaction.guild_id);
   if (!channelId) {
     return ephemeral(
       "이 서버는 아직 내전 채널과 연결되지 않았어요. 채널 관리자에게 문의해주세요.",
     );
   }
+  const memberId = await resolveMemberId(sb, discordUserId, channelId);
 
   // 슬래시: 이미 등록된 계정이면 곧장 수정 화면, 신규면 배틀태그 모달.
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {

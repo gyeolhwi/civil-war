@@ -28,8 +28,9 @@ export const channelUpdateSchema = z.object({
   ...channelBaseSchema,
 });
 
-/** 멤버 디스코드 ID 연결/해제 (빈 값이면 해제). */
+/** 멤버 디스코드 ID 연결/해제 (빈 값이면 해제). channelId = 채널별 중복 검사용. */
 export const memberDiscordSchema = z.object({
+  channelId: z.string().uuid(),
   memberId: z.string().uuid(),
   discordUserId: optionalDiscordId,
 });

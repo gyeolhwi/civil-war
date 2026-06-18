@@ -31,8 +31,9 @@ export function mapMemberError(message?: string): string {
 
 /**
  * 글로벌 members 행을 찾거나 만든다 (배틀태그 기준, SC-11).
- * 우선순위: memberId > discordUserId > battleTag > 신규.
- * discordUserId 가 주어지면 그 값으로 본인 행을 찾고, 멤버에 함께 기록한다.
+ * 우선순위: memberId > battleTag > 신규.
+ * discordUserId 는 멤버에 함께 기록하지만, 채널별로 다른 멤버에 연결될 수 있어
+ * 전역으로 멤버를 찾는 키로는 쓰지 않는다(채널 스코프 조회는 호출부가 담당).
  */
 export async function upsertMemberCore(
   sb: SupabaseClient,
@@ -45,14 +46,6 @@ export async function upsertMemberCore(
 ): Promise<{ ok: true; memberId: string } | { ok: false; error: string }> {
   let memberId = input.memberId ?? null;
 
-  if (!memberId && input.discordUserId) {
-    const { data } = await sb
-      .from("members")
-      .select("id")
-      .eq("discord_user_id", input.discordUserId)
-      .maybeSingle();
-    memberId = data?.id ?? null;
-  }
   if (!memberId) {
     const { data } = await sb
       .from("members")

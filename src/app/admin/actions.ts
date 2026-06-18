@@ -106,17 +106,40 @@ export async function setMemberDiscordId(raw: unknown): Promise<ActionResult> {
   const v = parsed.data;
 
   const supabase = await createClient();
+
+  // 디스코드 ID는 채널별 유일: 같은 채널의 다른 멤버가 이미 쓰면 차단.
+  // (전역 중복은 허용 — 다른 채널에서 다른 배틀태그로 연결될 수 있음)
+  if (v.discordUserId) {
+    const { data: links } = await supabase
+      .from("channel_members")
+      .select("member_id")
+      .eq("channel_id", v.channelId);
+    const others = (links ?? [])
+      .map((l) => l.member_id as string)
+      .filter((id) => id !== v.memberId);
+    if (others.length) {
+      const { data: dup } = await supabase
+        .from("members")
+        .select("id")
+        .eq("discord_user_id", v.discordUserId)
+        .in("id", others)
+        .limit(1);
+      if (dup?.length) {
+        return {
+          ok: false,
+          error: "이 채널의 다른 멤버에 이미 연결된 디스코드 ID입니다",
+        };
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("members")
     .update({ discord_user_id: v.discordUserId })
     .eq("id", v.memberId);
-  if (error) {
-    if (error.message.includes("members_discord_user_id_key")) {
-      return { ok: false, error: "이미 다른 멤버에 연결된 디스코드 ID입니다" };
-    }
-    return { ok: false, error: "저장 중 오류가 발생했습니다" };
-  }
+  if (error) return { ok: false, error: "저장 중 오류가 발생했습니다" };
 
   revalidatePath("/admin");
+  revalidatePath(`/admin/channels/${v.channelId}`);
   return { ok: true };
 }
