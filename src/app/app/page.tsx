@@ -31,6 +31,11 @@ const MENUS = [
     title: "채널 정보",
     desc: "채널명·관리자 정보",
   },
+  {
+    href: "/app/rules",
+    title: "내전 규칙",
+    desc: "내전 규칙 안내·편집 (채널별)",
+  },
 ];
 
 const SUPER_MENUS = [

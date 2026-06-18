@@ -1,4 +1,4 @@
--- 0008: 디스코드 ID를 "채널별"로 멤버에 연결 허용
+`-- 0008: 디스코드 ID를 "채널별"로 멤버에 연결 허용
 --
 -- 같은 디스코드 계정이 채널마다 다른 배틀태그(멤버)로 활동할 수 있어야 한다
 -- (예: 비숑=배틀태그 A, 벙커=배틀태그 B). 0004에서 건 전역 UNIQUE 제약은
@@ -15,3 +15,4 @@ alter table public.members
 
 create index if not exists members_discord_user_id_idx
   on public.members (discord_user_id);
+`

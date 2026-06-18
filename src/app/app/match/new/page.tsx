@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getMyChannel } from "@/lib/channel";
 import { loadParticipants } from "@/lib/participants";
 import { loadPresets } from "@/lib/presets";
+import { loadChannelRulesBody } from "@/lib/rules-load";
 import { MatchWizard } from "./match-wizard";
 
 export default async function NewMatchPage() {
@@ -17,9 +18,10 @@ export default async function NewMatchPage() {
     );
   }
 
-  const [participants, presets] = await Promise.all([
+  const [participants, presets, rulesBody] = await Promise.all([
     loadParticipants(channel.id),
     loadPresets(channel.id),
+    loadChannelRulesBody(channel.id),
   ]);
 
   if (participants.length < 10) {
@@ -39,7 +41,11 @@ export default async function NewMatchPage() {
 
   return (
     <Shell>
-      <MatchWizard participants={participants} presets={presets} />
+      <MatchWizard
+        participants={participants}
+        presets={presets}
+        rulesBody={rulesBody}
+      />
     </Shell>
   );
 }

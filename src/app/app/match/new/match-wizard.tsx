@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { HeroMultiSelect } from "@/components/hero-multi-select";
 import { useRefData } from "@/components/ref-data-provider";
+import { RulesModal } from "@/components/rules-modal";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -181,9 +182,11 @@ function toBanTeam(t: BuiltTeam, byId: Map<string, Participant>): BanTeam {
 export function MatchWizard({
   participants,
   presets,
+  rulesBody,
 }: {
   participants: Participant[];
   presets: MatchPreset[];
+  rulesBody: string;
 }) {
   const router = useRouter();
   const { heroByCode, mapByCode, heroes, maps } = useRefData();
@@ -1037,22 +1040,25 @@ export function MatchWizard({
         <p className="text-center text-sm text-ink-subtle">
           점수차 <AnimatedNumber value={candidate.diff} />
         </p>
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="secondary" onClick={copyShare}>
-            디스코드 복사
-          </Button>
-          {mode === "basic" ? (
-            <Button variant="secondary" onClick={build} disabled={pending}>
-              재생성
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <RulesModal body={rulesBody} label="📜 내전 규칙" />
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={copyShare}>
+              디스코드 복사
             </Button>
-          ) : (
-            <Button variant="secondary" onClick={redraft} disabled={pending}>
-              드래프트 다시
+            {mode === "basic" ? (
+              <Button variant="secondary" onClick={build} disabled={pending}>
+                재생성
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={redraft} disabled={pending}>
+                드래프트 다시
+              </Button>
+            )}
+            <Button onClick={confirmTeams} disabled={pending}>
+              {pending ? "저장 중…" : "팀 확정"}
             </Button>
-          )}
-          <Button onClick={confirmTeams} disabled={pending}>
-            {pending ? "저장 중…" : "팀 확정"}
-          </Button>
+          </div>
         </div>
       </div>
     );
