@@ -1041,7 +1041,6 @@ export function MatchWizard({
           점수차 <AnimatedNumber value={candidate.diff} />
         </p>
         <div className="flex flex-wrap justify-end gap-2">
-          <RulesModal body={rulesBody} />
           <Button variant="secondary" onClick={copyShare}>
             디스코드 복사
           </Button>
@@ -1170,6 +1169,7 @@ export function MatchWizard({
         </p>
 
         <div className="flex flex-wrap justify-end gap-2">
+          <RulesModal body={rulesBody} />
           <Button variant="secondary" onClick={copyShare}>
             디스코드 복사
           </Button>
