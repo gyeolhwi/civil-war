@@ -142,3 +142,74 @@ export async function getReactionUsers(
     bot?: boolean;
   }[];
 }
+
+// ── /내전이동: 음성채널 이동 ────────────────────────────────────────────────
+
+/** 길드의 음성채널 목록 (이동 대상 후보). 실패 시 빈 배열 → 호출부에서 수동 입력 폴백. */
+export async function listGuildVoiceChannels(
+  guildId: string,
+): Promise<{ id: string; name: string }[]> {
+  const res = await fetch(`${API_BASE}/guilds/${guildId}/channels`, {
+    headers: botHeaders(),
+  });
+  if (!res.ok) return [];
+  const all = (await res.json()) as {
+    id: string;
+    name: string;
+    type: number;
+  }[];
+  // type 2 = GUILD_VOICE, 13 = GUILD_STAGE_VOICE
+  return all
+    .filter((c) => c.type === 2 || c.type === 13)
+    .map((c) => ({ id: c.id, name: c.name }));
+}
+
+export type MoveResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "not_in_voice" | "forbidden" | "unknown";
+      status: number;
+    };
+
+/**
+ * 길드 멤버를 음성채널로 이동. 멤버가 음성에 접속해 있어야 성공한다(디스코드 제약).
+ * 한 명 실패가 전체를 막지 않도록 throw 대신 구조화된 결과를 반환한다.
+ */
+export async function moveMemberToVoice(
+  guildId: string,
+  userId: string,
+  voiceChannelId: string,
+): Promise<MoveResult> {
+  const res = await fetch(`${API_BASE}/guilds/${guildId}/members/${userId}`, {
+    method: "PATCH",
+    headers: botHeaders(),
+    body: JSON.stringify({ channel_id: voiceChannelId }),
+  });
+  if (res.ok) return { ok: true };
+  const { status, code } = await readDiscordError(res);
+  // 40032 = Target user is not connected to voice
+  if (code === 40032) return { ok: false, reason: "not_in_voice", status };
+  if (status === 403) return { ok: false, reason: "forbidden", status };
+  return { ok: false, reason: "unknown", status };
+}
+
+/**
+ * 인터랙션의 deferred 응답(원본 메시지)을 최종 결과로 수정한다.
+ * 웹훅 URL 의 interactionToken 자체가 인증이라 봇 토큰 헤더는 불필요.
+ */
+export async function editOriginalInteraction(
+  interactionToken: string,
+  content: string,
+): Promise<void> {
+  const appId = process.env.DISCORD_APPLICATION_ID;
+  if (!appId) return;
+  await fetch(
+    `${API_BASE}/webhooks/${appId}/${interactionToken}/messages/@original`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    },
+  );
+}

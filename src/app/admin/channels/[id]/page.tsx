@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChannelDetail, listAdminOptions } from "@/lib/admin-console";
+import { listGuildVoiceChannels } from "@/lib/discord/rest";
 import { requireSuperWithMfa } from "@/lib/mfa";
 import { ChannelDetailClient } from "./channel-detail-client";
 
@@ -17,6 +18,11 @@ export default async function ChannelDetailPage({
     listAdminOptions(),
   ]);
   if (!channel) notFound();
+
+  // 그 서버의 음성채널 목록을 봇으로 가져와 드롭다운에 제공(길드 미연결·실패 시 빈 배열 → 수동 입력 폴백).
+  const voiceChannels = channel.discordGuildId
+    ? await listGuildVoiceChannels(channel.discordGuildId)
+    : [];
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
@@ -35,7 +41,11 @@ export default async function ChannelDetailPage({
         </p>
       </header>
 
-      <ChannelDetailClient channel={channel} admins={admins} />
+      <ChannelDetailClient
+        channel={channel}
+        admins={admins}
+        voiceChannels={voiceChannels}
+      />
     </main>
   );
 }

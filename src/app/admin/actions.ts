@@ -82,6 +82,8 @@ export async function updateChannel(raw: unknown): Promise<ActionResult> {
       discord_guild_id: v.discordGuildId,
       discord_channel_id: v.discordChannelId,
       owner_admin_id: v.ownerAdminId,
+      voice_channel_a_id: v.voiceChannelAId,
+      voice_channel_b_id: v.voiceChannelBId,
     })
     .eq("id", v.channelId);
   if (error) return { ok: false, error: mapChannelError(error.message) };

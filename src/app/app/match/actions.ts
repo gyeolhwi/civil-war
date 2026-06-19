@@ -125,6 +125,8 @@ export interface CreateMatchTeam {
 export interface CreateMatchInput {
   buildMode: BuildMode;
   teams: CreateMatchTeam[];
+  /** 이 매치를 시작한 모집 프리셋 id (프리셋 불러오기로 시작한 경우). /내전이동 [코드] 해석용 */
+  presetId?: string | null;
 }
 
 export interface SavedMember {
@@ -162,7 +164,11 @@ export async function createMatch(
 
   const { data: match, error: matchErr } = await supabase
     .from("matches")
-    .insert({ channel_id: channel.id, build_mode: input.buildMode })
+    .insert({
+      channel_id: channel.id,
+      build_mode: input.buildMode,
+      preset_id: input.presetId ?? null,
+    })
     .select("id")
     .single();
   if (matchErr || !match) {

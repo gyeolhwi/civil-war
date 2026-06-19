@@ -24,13 +24,19 @@ const selectClass =
 export function ChannelDetailClient({
   channel,
   admins,
+  voiceChannels,
 }: {
   channel: ChannelDetail;
   admins: AdminOption[];
+  voiceChannels: { id: string; name: string }[];
 }) {
   return (
     <div className="flex flex-col gap-8">
-      <ChannelSettings channel={channel} admins={admins} />
+      <ChannelSettings
+        channel={channel}
+        admins={admins}
+        voiceChannels={voiceChannels}
+      />
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold tracking-tight">멤버</h2>
         {channel.members.length === 0 ? (
@@ -52,15 +58,19 @@ export function ChannelDetailClient({
 function ChannelSettings({
   channel,
   admins,
+  voiceChannels,
 }: {
   channel: ChannelDetail;
   admins: AdminOption[];
+  voiceChannels: { id: string; name: string }[];
 }) {
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(channel.name);
   const [guildId, setGuildId] = useState(channel.discordGuildId ?? "");
   const [channelId, setChannelId] = useState(channel.discordChannelId ?? "");
   const [ownerId, setOwnerId] = useState(channel.ownerAdminId ?? "");
+  const [voiceA, setVoiceA] = useState(channel.voiceChannelAId ?? "");
+  const [voiceB, setVoiceB] = useState(channel.voiceChannelBId ?? "");
 
   function onSave() {
     startTransition(async () => {
@@ -70,6 +80,8 @@ function ChannelSettings({
         discordGuildId: guildId.trim(),
         discordChannelId: channelId.trim(),
         ownerAdminId: ownerId,
+        voiceChannelAId: voiceA.trim(),
+        voiceChannelBId: voiceB.trim(),
       });
       if (res.ok) toast.success("채널 설정을 저장했습니다");
       else toast.error(res.error);
@@ -114,6 +126,20 @@ function ChannelSettings({
               onChange={(e) => setChannelId(e.target.value)}
             />
           </Field>
+          <Field label="A팀 음성채널 (/내전이동)">
+            <VoicePicker
+              value={voiceA}
+              onChange={setVoiceA}
+              channels={voiceChannels}
+            />
+          </Field>
+          <Field label="B팀 음성채널 (/내전이동)">
+            <VoicePicker
+              value={voiceB}
+              onChange={setVoiceB}
+              channels={voiceChannels}
+            />
+          </Field>
         </div>
         <div className="flex justify-end">
           <Button size="sm" onClick={onSave} disabled={pending}>
@@ -137,6 +163,46 @@ function Field({
       <Label>{label}</Label>
       {children}
     </div>
+  );
+}
+
+/**
+ * 음성채널 선택. 봇이 그 서버 음성채널 목록을 줬으면 드롭다운(이름→ID),
+ * 못 줬으면(길드 미연결·봇 권한 등) ID 직접 입력으로 폴백.
+ */
+function VoicePicker({
+  value,
+  onChange,
+  channels,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  channels: { id: string; name: string }[];
+}) {
+  if (channels.length === 0) {
+    return (
+      <Input
+        placeholder="음성채널 ID (길드 연결 후 목록 자동표시)"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  }
+  const known = channels.some((c) => c.id === value);
+  return (
+    <select
+      className={selectClass}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">미설정</option>
+      {channels.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.name}
+        </option>
+      ))}
+      {value && !known && <option value={value}>저장된 ID: {value}</option>}
+    </select>
   );
 }
 

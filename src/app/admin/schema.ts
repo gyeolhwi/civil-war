@@ -26,6 +26,9 @@ export const channelCreateSchema = z.object(channelBaseSchema);
 export const channelUpdateSchema = z.object({
   channelId: z.string().uuid(),
   ...channelBaseSchema,
+  // 팀별 음성채널 (/내전이동 대상). 빈 값이면 null.
+  voiceChannelAId: optionalDiscordId,
+  voiceChannelBId: optionalDiscordId,
 });
 
 /** 멤버 디스코드 ID 연결/해제 (빈 값이면 해제). channelId = 채널별 중복 검사용. */

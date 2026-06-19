@@ -39,6 +39,18 @@ const commands = [
     name: "패치노트",
     description: "오버워치 신규 소식·내전 봇 업데이트를 확인합니다",
   },
+  {
+    name: "내전이동",
+    description: "확정된 팀을 A/B 음성채널로 이동시킵니다 (음성 접속자 대상)",
+    options: [
+      {
+        name: "코드",
+        description: "프리셋 번호 (예: 5). 생략 시 가장 최근 내전",
+        type: 4, // INTEGER
+        required: false,
+      },
+    ],
+  },
 ];
 
 const headers = {

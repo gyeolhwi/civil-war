@@ -1,7 +1,12 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { runMoveVoice } from "@/lib/discord/move-voice";
 import { handlePatchNotes } from "@/lib/discord/patch-notes";
 import { handleRegister, resolveChannelId } from "@/lib/discord/register";
-import { addReaction, postChannelMessage } from "@/lib/discord/rest";
+import {
+  addReaction,
+  editOriginalInteraction,
+  postChannelMessage,
+} from "@/lib/discord/rest";
 import { verifyDiscordRequest } from "@/lib/discord/verify";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -22,11 +27,16 @@ const InteractionType = {
   MESSAGE_COMPONENT: 3,
   MODAL_SUBMIT: 5,
 } as const;
-const CallbackType = { PONG: 1, CHANNEL_MESSAGE_WITH_SOURCE: 4 } as const;
+const CallbackType = {
+  PONG: 1,
+  CHANNEL_MESSAGE_WITH_SOURCE: 4,
+  DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE: 5,
+} as const;
 const EPHEMERAL = 64; // 응답을 명령 실행자에게만 보이게 하는 플래그
 
 interface DiscordInteraction {
   type: number;
+  token?: string;
   guild_id?: string;
   channel_id?: string;
   channel?: { id?: string };
@@ -181,6 +191,25 @@ export async function POST(request: Request) {
     }
     if (interaction.data?.name === "패치노트") {
       return NextResponse.json(await handlePatchNotes());
+    }
+    if (interaction.data?.name === "내전이동") {
+      const codeOpt = interaction.data.options?.find((o) => o.name === "코드");
+      const code = typeof codeOpt?.value === "number" ? codeOpt.value : null;
+      const token = interaction.token;
+      // 3초 제한 회피: 먼저 "처리 중"(deferred)으로 응답하고, 실제 이동은 응답 후 처리.
+      after(async () => {
+        let msg: string;
+        try {
+          msg = await runMoveVoice(interaction.guild_id, code);
+        } catch (e) {
+          msg = `이동 처리 중 오류: ${e instanceof Error ? e.message : String(e)}`;
+        }
+        if (token) await editOriginalInteraction(token, msg);
+      });
+      return NextResponse.json({
+        type: CallbackType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { flags: EPHEMERAL },
+      });
     }
     return NextResponse.json({
       type: CallbackType.CHANNEL_MESSAGE_WITH_SOURCE,

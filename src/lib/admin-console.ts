@@ -43,6 +43,8 @@ export interface ChannelDetail {
   discordChannelId: string | null;
   ownerAdminId: string | null;
   ownerName: string | null;
+  voiceChannelAId: string | null;
+  voiceChannelBId: string | null;
   members: ChannelMemberRow[];
 }
 
@@ -115,7 +117,9 @@ export async function getChannelDetail(
 
   const { data: channel } = await supabase
     .from("channels")
-    .select("id, name, discord_guild_id, discord_channel_id, owner_admin_id")
+    .select(
+      "id, name, discord_guild_id, discord_channel_id, owner_admin_id, voice_channel_a_id, voice_channel_b_id",
+    )
     .eq("id", channelId)
     .maybeSingle();
   if (!channel) return null;
@@ -178,6 +182,8 @@ export async function getChannelDetail(
     discordChannelId: (channel.discord_channel_id as string | null) ?? null,
     ownerAdminId: (channel.owner_admin_id as string | null) ?? null,
     ownerName: ownerRow.data ? adminLabel(ownerRow.data) : null,
+    voiceChannelAId: (channel.voice_channel_a_id as string | null) ?? null,
+    voiceChannelBId: (channel.voice_channel_b_id as string | null) ?? null,
     members: memberRows,
   };
 }

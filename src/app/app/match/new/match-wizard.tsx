@@ -133,6 +133,7 @@ function toCreateInput(
   c: Candidate,
   mode: BuildMode,
   draft?: { A: DraftAssign[]; B: DraftAssign[] } | null,
+  presetId?: string | null,
 ): CreateMatchInput {
   const team = (t: BuiltTeam, side: "A" | "B") => {
     const assigns = draft?.[side];
@@ -153,7 +154,11 @@ function toCreateInput(
       })),
     };
   };
-  return { buildMode: mode, teams: [team(c.teamA, "A"), team(c.teamB, "B")] };
+  return {
+    buildMode: mode,
+    teams: [team(c.teamA, "A"), team(c.teamB, "B")],
+    presetId: presetId ?? null,
+  };
 }
 
 function shareTeam(t: BuiltTeam, label: string): ShareTeam {
@@ -205,6 +210,8 @@ export function MatchWizard({
   );
   const [presetOpen, setPresetOpen] = useState(false);
   const [presetLoadingId, setPresetLoadingId] = useState<string | null>(null);
+  // 프리셋으로 시작한 세션이면 그 프리셋 id 를 매치에 연결 → /내전이동 [코드] 해석용
+  const [appliedPresetId, setAppliedPresetId] = useState<string | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [mode, setMode] = useState<BuildMode>("basic");
   const [candidate, setCandidate] = useState<Candidate | null>(null);
@@ -261,6 +268,7 @@ export function MatchWizard({
         }
         const valid = res.data.memberIds.filter((id) => byId.has(id));
         setSelected(valid.slice(0, 10));
+        setAppliedPresetId(preset.id);
         setUnmatchedNames(res.data.unmatchedNames);
         setPresetOpen(false);
         const capped = valid.length > 10 ? " (10명 초과분 제외)" : "";
@@ -409,7 +417,9 @@ export function MatchWizard({
   function confirmTeams() {
     if (!candidate) return;
     startTransition(async () => {
-      const res = await createMatch(toCreateInput(candidate, mode, draftData));
+      const res = await createMatch(
+        toCreateInput(candidate, mode, draftData, appliedPresetId),
+      );
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -425,7 +435,9 @@ export function MatchWizard({
   function replaySameTeams() {
     if (!candidate) return;
     startTransition(async () => {
-      const res = await createMatch(toCreateInput(candidate, mode, draftData));
+      const res = await createMatch(
+        toCreateInput(candidate, mode, draftData, appliedPresetId),
+      );
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -1314,6 +1326,7 @@ export function MatchWizard({
             desc="참가자 선택부터 다시"
             onClick={() => {
               setSelected([]);
+              setAppliedPresetId(null);
               setUnmatchedNames([]);
               setCandidate(null);
               setSaved(null);
