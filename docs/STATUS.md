@@ -112,8 +112,10 @@
 
 - **인터랙션 엔드포인트** (`/api/discord/interactions`, `route.ts`): Ed25519 서명검증(`lib/discord/verify.ts`, `node:crypto`) + PING/PONG. POC(`poc/discord-interactions-verify.mjs`) 7/7 → 라우트 이식. `/api/discord`는 세션 미들웨어에서 제외(3초 제한).
 - **`/내전 날짜 시간`** 커맨드: 모집 임베드 공지 게시 + ✅ 자동 첨부. 공지는 봇 REST(`lib/discord/rest.ts` `postChannelMessage`)로 올려 message.id 확보 → `addReaction`. 인터랙션 응답은 ephemeral 확인.
-- **커맨드 등록 스크립트** (`scripts/discord-register.mjs`): `node --env-file=.env.local`로 길드 즉시 등록(PUT 덮어쓰기).
-- **봇 권한(최소)**: 채널보기·메시지보내기·링크임베드·반응추가·메시지기록보기 + (음성)멤버이동. scope `bot`+`applications.commands`. Privileged Intents 전부 OFF.
+- **커맨드 등록 스크립트** (`scripts/discord-register.mjs`): `node --env-file=.env.local`로 **글로벌 등록**(PUT 덮어쓰기, 반영 ~1시간). 초대된 모든 서버에 자동 노출 → 새 서버는 초대만 하면 됨.
+- **봇 권한(최소)**: 채널보기·메시지보내기·링크임베드·반응추가·메시지기록보기 + (음성)멤버이동 = `permissions=16862272`. scope `bot`+`applications.commands`. Privileged Intents 전부 OFF.
+  - ⚠️ **`bot` 스코프 누락 시 봇이 멤버로 안 들어온다**(명령어만 등록됨) → REST 호출 전부 실패. 포털 `Installation → Guild Install` 기본 설치 설정에도 `bot` 을 넣어둘 것. [channel-link-guide.md](ops/channel-link-guide.md) "⚠️ 함정" 참고.
+  - 게이트웨이 미사용(HTTP 인터랙션) → 봇은 **항상 오프라인 표시가 정상**.
 - **겪은 함정(가이드에 기록)**: ① Vercel 배포 보호(SSO) → Discord 검증 차단(끔). ② 이름 비슷한 남의 `civil-war.vercel.app`. ③ **env 추가 후 새 배포 안 하면 런타임 미반영**(`DISCORD_BOT_TOKEN` 못 읽음) → git push로 해결.
 - **푸터 제작자 표기**(`96ab275`): 랜딩 푸터에 GitHub(gyeolhwi) 링크 + Discord 핸들, 메타데이터 author/creator를 gyeolhwi로.
 

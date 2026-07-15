@@ -117,8 +117,13 @@ console.log(appId, guilds.map((g) => `${g.name}:${g.id}`));
 |---|---|---|
 | `DISCORD_PUBLIC_KEY` | ✅ 필요 | 런타임 서명검증 |
 | `DISCORD_BOT_TOKEN` | ✅ 필요 | 런타임 REST 호출 |
-| `DISCORD_APPLICATION_ID` | ❌ 불필요 | **로컬 등록 스크립트 전용** |
-| `DISCORD_GUILD_ID` | ❌ 불필요 | **로컬 등록 스크립트 전용** |
+| `DISCORD_APPLICATION_ID` | ✅ 필요 | 런타임에서 읽는다 — 아래 ⚠️ 참고 |
+| `DISCORD_GUILD_ID` | ❌ 불필요 | **로컬 등록 스크립트 전용**(과거 길드 등록 청소용) |
+
+> ⚠️ `DISCORD_APPLICATION_ID` 는 로컬 스크립트 전용이 아니다. `src/lib/discord/rest.ts` 의
+> `editOriginalInteraction` 이 이 값을 읽고, **없으면 조용히 `return`** 한다.
+> 이 함수는 `/내전이동` 의 deferred 응답을 최종 결과로 바꾸는 **유일한 경로**라,
+> Vercel 에 이 env 가 없으면 사용자는 **"처리 중" 에서 영구히 멈춘다**(에러도 안 뜬다).
 
 ### (c) ⚠️⚠️ env 변경 후 반드시 새 배포
 **Vercel은 환경변수를 추가/변경해도 "이미 떠 있는 배포"엔 적용하지 않는다. 새 배포부터 반영.**
@@ -171,18 +176,44 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST \
 
 > ⚠️ 관리자·서버관리 등은 주지 않는다. **최소 권한 원칙.**
 
-생성된 URL로 접속 → 서버 선택 → 초대.
+생성된 URL로 접속 → 서버 선택 → 초대. 위 6개 = `permissions=16862272`
+(`64+1024+2048+16384+65536+16777216`).
+
+### ⚠️ `bot` 스코프를 빠뜨리면 봇이 멤버로 안 들어온다
+
+`applications.commands` 만으로 설치하면 **명령어는 등록되지만 봇 유저가 서버에 없다.**
+길드 멤버가 아니면 봇 토큰 REST 호출이 막혀 **공지 전송·✅ 반응·음성 이동이 전부 실패**한다.
+
+초대 동의 화면에 **권한 6개가 나열되면 정상**이고, **"명령어 만들기"만 있고 권한 목록이 없으면
+`bot` 스코프가 빠진 것**이다. 증상은 "초대했는데 멤버 목록에 아예 없음".
+
+> 모이라는 게이트웨이에 접속하지 않아 **항상 오프라인으로 표시된다**(정상).
+> 판단 기준은 온라인 여부가 아니라 **멤버 목록에 존재하는지**다.
+
+**포털 기본 설치 링크(앱 프로필 "앱 추가" 버튼)도 고쳐둔다** — `Installation` 탭:
+- **Default Install Settings → Guild Install → Scopes** 에 `bot` 추가 + Permissions 6개 체크
+- **Installation Contexts** 는 **Guild Install 만** (User Install 경로로는 봇이 서버에 안 들어옴)
+- **Install Link** = `Discord Provided Link` → 포털 버튼과 수동 링크가 일치
+
+자세한 판별·복구 절차: [channel-link-guide.md](channel-link-guide.md) "⚠️ 함정" 절.
 
 ---
 
 ## 7. 슬래시 커맨드 등록
 
-길드(서버) 등록은 **즉시 반영**(전역 등록은 ~1시간). 내전용이라 길드 등록이 맞다.
+**글로벌 등록**이다 (`PUT /applications/{APP_ID}/commands`, 전체 덮어쓰기라 멱등).
+멀티서버 운영이라 글로벌이 맞다 — **봇이 초대된 모든 서버에 자동 노출**되므로
+새 서버엔 초대만 하면 되고 스크립트 재실행이 필요 없다.
+
+> ⚠️ **반영에 ~1시간** 걸린다. 방금 초대한 서버에서 `/내전` 이 안 보이는 건 대개 전파 대기다.
+> (길드 등록은 즉시 반영이지만, 서버마다 재등록해야 해서 멀티서버엔 안 맞다.)
 
 ```bash
 node --env-file=.env.local scripts/discord-register.mjs
-# → ✓ 길드(...)에 N개 커맨드 등록 완료: /내전 — ...
+# → ✓ 글로벌로 N개 커맨드 등록 완료 (반영 ~1시간)
 ```
+
+`DISCORD_GUILD_ID` 가 있으면 **과거 길드 등록 잔재를 청소**한다(빈 배열 PUT). 선택 사항.
 
 - 스크립트는 **PUT(전체 덮어쓰기)** 라 여러 번 돌려도 중복 안 됨.
 - 커맨드 정의를 바꾸면(옵션 추가 등) 다시 실행.
