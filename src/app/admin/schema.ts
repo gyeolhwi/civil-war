@@ -29,6 +29,8 @@ export const channelUpdateSchema = z.object({
   // 팀별 음성채널 (/내전이동 대상). 빈 값이면 null.
   voiceChannelAId: optionalDiscordId,
   voiceChannelBId: optionalDiscordId,
+  // 패치노트가 게시될 텍스트채널. 빈 값이면 이 서버는 전송 대상에서 빠진다.
+  patchChannelId: optionalDiscordId,
 });
 
 /** 멤버 디스코드 ID 연결/해제 (빈 값이면 해제). channelId = 채널별 중복 검사용. */

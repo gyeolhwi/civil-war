@@ -84,6 +84,7 @@ export async function updateChannel(raw: unknown): Promise<ActionResult> {
       owner_admin_id: v.ownerAdminId,
       voice_channel_a_id: v.voiceChannelAId,
       voice_channel_b_id: v.voiceChannelBId,
+      patch_channel_id: v.patchChannelId,
     })
     .eq("id", v.channelId);
   if (error) return { ok: false, error: mapChannelError(error.message) };

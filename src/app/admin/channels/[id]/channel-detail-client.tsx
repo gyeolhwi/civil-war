@@ -71,6 +71,9 @@ function ChannelSettings({
   const [ownerId, setOwnerId] = useState(channel.ownerAdminId ?? "");
   const [voiceA, setVoiceA] = useState(channel.voiceChannelAId ?? "");
   const [voiceB, setVoiceB] = useState(channel.voiceChannelBId ?? "");
+  const [patchChannel, setPatchChannel] = useState(
+    channel.patchChannelId ?? "",
+  );
 
   function onSave() {
     startTransition(async () => {
@@ -82,6 +85,7 @@ function ChannelSettings({
         ownerAdminId: ownerId,
         voiceChannelAId: voiceA.trim(),
         voiceChannelBId: voiceB.trim(),
+        patchChannelId: patchChannel.trim(),
       });
       if (res.ok) toast.success("채널 설정을 저장했습니다");
       else toast.error(res.error);
@@ -138,6 +142,13 @@ function ChannelSettings({
               value={voiceB}
               onChange={setVoiceB}
               channels={voiceChannels}
+            />
+          </Field>
+          <Field label="패치노트 채널 ID">
+            <Input
+              placeholder="비우면 패치노트 전송 대상에서 제외"
+              value={patchChannel}
+              onChange={(e) => setPatchChannel(e.target.value)}
             />
           </Field>
         </div>
