@@ -17,6 +17,11 @@ const MENUS = [
     desc: "참가자 10명 선택부터 팀 편성·드래프트까지",
   },
   {
+    href: "/app/quick",
+    title: "빠른편성 (OWKR형식)",
+    desc: "디스코드 티어 명단 붙여넣기 → 즉석 팀 자동편성 (기록 안 됨)",
+  },
+  {
     href: "/app/members",
     title: "멤버 관리",
     desc: "채널 멤버 등록·수정, 티어·포지션·선호 입력",
