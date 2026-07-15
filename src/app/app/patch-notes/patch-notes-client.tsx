@@ -222,14 +222,15 @@ export function PatchNotesClient({
               </div>
               {open && (
                 <>
-                  <pre className="overflow-x-auto whitespace-pre-wrap border-t border-border px-3 py-3 text-sm leading-relaxed">
-                    {p.body}
-                  </pre>
+                  {/* 본문은 최대 8000자라 아래 두면 전송하려고 전문을 스크롤해야 한다. */}
                   <SendPanel
                     post={p}
                     targets={targets}
                     sentMap={sentByPost.get(p.id)}
                   />
+                  <pre className="overflow-x-auto whitespace-pre-wrap border-t border-border px-3 py-3 text-sm leading-relaxed">
+                    {p.body}
+                  </pre>
                 </>
               )}
             </div>
@@ -252,6 +253,8 @@ function SendPanel({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  // 서버가 늘어나도 패널 높이가 고정되도록 서버별 목록은 접어둔다.
+  const [showList, setShowList] = useState(false);
 
   function run(target: "all" | string, force: boolean) {
     start(async () => {
@@ -289,6 +292,15 @@ function SendPanel({
     );
   }
 
+  const sentCount = targets.filter((t) => sentMap?.has(t.id)).length;
+  const unsentCount = targets.length - sentCount;
+  const allSent = unsentCount === 0;
+  const summary = allSent
+    ? `✓ ${targets.length}곳 모두 전송됨`
+    : sentCount === 0
+      ? `${unsentCount}곳 미전송`
+      : `✓ ${sentCount}곳 전송 · ${unsentCount}곳 미전송`;
+
   return (
     <div className="border-t border-border px-3 py-3">
       <div className="flex items-center justify-between gap-2">
@@ -298,52 +310,71 @@ function SendPanel({
         <Button
           size="sm"
           onClick={() => run("all", false)}
-          disabled={pending || !post.published}
+          disabled={pending || !post.published || allSent}
         >
           {pending ? "전송 중…" : "전체 서버 전송"}
         </Button>
       </div>
 
-      <ul className="mt-2 space-y-1">
-        {targets.map((t) => {
-          const sentAt = sentMap?.get(t.id);
-          return (
-            <li
-              key={t.id}
-              className="flex items-center justify-between gap-2 text-sm"
-            >
-              <span className="min-w-0 truncate">
-                {t.name}
-                {sentAt ? (
-                  <span className="ml-1.5 text-xs text-emerald-500">
-                    ✓ {sentAt.slice(0, 10)} 전송됨
-                  </span>
-                ) : (
-                  <span className="ml-1.5 text-xs text-muted-foreground">
-                    미전송
-                  </span>
-                )}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pending || !post.published}
-                onClick={() => {
-                  if (
-                    sentAt &&
-                    !window.confirm(`${t.name}에 이미 보냈어요. 다시 보낼까요?`)
-                  ) {
-                    return;
-                  }
-                  run(t.id, Boolean(sentAt));
-                }}
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <p
+          className={`text-xs ${allSent ? "text-emerald-500" : "text-muted-foreground"}`}
+        >
+          {summary}
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowList((v) => !v)}
+          className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+        >
+          서버별 {showList ? "▲" : "▼"}
+        </button>
+      </div>
+
+      {showList && (
+        <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto pr-1">
+          {targets.map((t) => {
+            const sentAt = sentMap?.get(t.id);
+            return (
+              <li
+                key={t.id}
+                className="flex items-center justify-between gap-2 text-sm"
               >
-                {sentAt ? "재전송" : "전송"}
-              </Button>
-            </li>
-          );
-        })}
-      </ul>
+                <span className="min-w-0 truncate">
+                  {t.name}
+                  {sentAt ? (
+                    <span className="ml-1.5 text-xs text-emerald-500">
+                      ✓ {sentAt.slice(0, 10)} 전송됨
+                    </span>
+                  ) : (
+                    <span className="ml-1.5 text-xs text-muted-foreground">
+                      미전송
+                    </span>
+                  )}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pending || !post.published}
+                  onClick={() => {
+                    if (
+                      sentAt &&
+                      !window.confirm(
+                        `${t.name}에 이미 보냈어요. 다시 보낼까요?`,
+                      )
+                    ) {
+                      return;
+                    }
+                    run(t.id, Boolean(sentAt));
+                  }}
+                >
+                  {sentAt ? "재전송" : "전송"}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {!post.published && (
         <p className="mt-2 text-xs text-muted-foreground">
